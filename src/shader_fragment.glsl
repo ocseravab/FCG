@@ -118,13 +118,37 @@ void main()
         V = texcoords.y;
     }
 
-    // Obtemos a refletância difusa a partir da leitura da imagem TextureImage0
-    vec3 Kd0 = texture(TextureImage0, vec2(U,V)).rgb;
+    // Tratamento especial para linhas de direção e crosshair
+    if ( object_id == 3 ) // DIRECTION_LINE_PLAYER - linha verde para player
+    {
+        // Cor verde para indicadores de direção do player
+        color.rgb = vec3(0.0, 1.0, 0.0);
+    }
+    else if ( object_id == 4 ) // CROSSHAIR - verde
+    {
+        // Cor verde para crosshair
+        color.rgb = vec3(0.0, 1.0, 0.0);
+    }
+    else if ( object_id == 6 ) // CROSSHAIR_OUTLINE - contorno escuro
+    {
+        // Cor escura para contorno do crosshair
+        color.rgb = vec3(0.0, 0.0, 0.0);
+    }
+    else if ( object_id == 5 ) // DIRECTION_LINE_ENEMY - linha vermelha para inimigos
+    {
+        // Cor vermelha para indicadores de direção dos inimigos
+        color.rgb = vec3(1.0, 0.0, 0.0);
+    }
+    else
+    {
+        // Obtemos a refletância difusa a partir da leitura da imagem TextureImage0
+        vec3 Kd0 = texture(TextureImage0, vec2(U,V)).rgb;
 
-    // Equação de Iluminação
-    float lambert = max(0,dot(n,l));
+        // Equação de Iluminação
+        float lambert = max(0,dot(n,l));
 
-    color.rgb = Kd0 * (lambert + 0.01);
+        color.rgb = Kd0 * (lambert + 0.01);
+    }
 
     // NOTE: Se você quiser fazer o rendering de objetos transparentes, é
     // necessário:

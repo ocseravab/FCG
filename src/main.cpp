@@ -33,6 +33,8 @@
 #include "utils.h"
 #include "matrices.h"
 
+#define M_PI 3.141592f
+
 // Estrutura que representa um modelo geométrico carregado a partir de um arquivo ".obj".
 struct ObjModel
 {
@@ -102,6 +104,9 @@ void ComputeNormals(ObjModel* model); // Computa normais de um ObjModel, caso n�
 void LoadShadersFromFiles(); // Carrega os shaders de vértice e fragmento, criando um programa de GPU
 void LoadTextureImage(const char* filename); // Função que carrega imagens de textura
 void DrawVirtualObject(const char* object_name); // Desenha um objeto armazenado em g_VirtualScene
+void DrawDirectionIndicator(glm::vec4 position, glm::vec4 forward, float length, glm::mat4 view, glm::mat4 projection, bool is_player = false); // Desenha indicador de direção
+void DrawCrosshair(GLFWwindow* window); // Desenha crosshair no centro da tela
+void CameraRaycast(glm::vec4 camera_position, glm::vec4 ray_direction); // Realiza raycast e verifica interseções
 GLuint LoadShader_Vertex(const char* filename);   // Carrega um vertex shader
 GLuint LoadShader_Fragment(const char* filename); // Carrega um fragment shader
 void LoadShader(const char* filename, GLuint shader_id); // Função utilizada pelas duas acima
@@ -156,7 +161,7 @@ struct Player
     float rotation_y;            // Rotação em torno do eixo Y (em radianos) - direção que o jogador está olhando
     glm::vec4 forward_vector;    // Vetor direção para frente do jogador (normalizado)
     glm::vec4 right_vector;      // Vetor direção para direita do jogador (normalizado)
-    
+
     // Estados de movimento
     enum MovementState {
         IDLE,
@@ -164,29 +169,29 @@ struct Player
         RUNNING
     };
     MovementState movement_state;
-    
+
     // Velocidades
     float walk_speed;            // Velocidade de caminhada
     float run_speed;             // Velocidade de corrida
     float current_speed;         // Velocidade atual (calculada baseada no estado)
-    
+
     // Controles de movimento
     bool moving_forward;         // Tecla para frente pressionada
     bool moving_backward;        // Tecla para trás pressionada
     bool moving_left;            // Tecla para esquerda pressionada
     bool moving_right;           // Tecla para direita pressionada
     bool is_running;             // Shift pressionado para correr
-    
+
     // Status do jogador
     float health;                // Vida do jogador (0.0 a 100.0)
     float max_health;            // Vida máxima
-    
+
     // Câmera em terceira pessoa
     float camera_distance;       // Distância da câmera ao jogador
     float camera_height;         // Altura da câmera em relação ao jogador
     float camera_angle_horizontal; // Ângulo horizontal da câmera (em radianos)
     float camera_angle_vertical;   // Ângulo vertical da câmera (em radianos)
-    
+
     // Construtor
     Player()
         : position(glm::vec4(0.0f, 0.0f, 0.0f, 1.0f))
@@ -202,13 +207,13 @@ struct Player
         , moving_left(false)
         , moving_right(false)
         , max_health(100.0f)
-        , camera_distance(5.0f)
-        , camera_height(1.0f)
+        , camera_distance(3.0f)
+        , camera_height(0.5f)
         , camera_angle_horizontal(0.0f)
         , camera_angle_vertical(0.3f)  // Câmera ligeiramente acima
     {
     }
-    
+
     // Atualiza os vetores de direção baseado na rotação Y
     void UpdateDirectionVectors()
     {
@@ -225,12 +230,12 @@ struct Player
             0.0f
         );
     }
-    
+
     // Atualiza o estado de movimento baseado nas teclas pressionadas
     void UpdateMovementState()
     {
         bool is_moving = moving_forward || moving_backward || moving_left || moving_right;
-        
+
         if (is_moving)
         {
             movement_state = is_running ? RUNNING : WALKING;
@@ -242,7 +247,7 @@ struct Player
             current_speed = 0.0f;
         }
     }
-    
+
     // Calcula a posição da câmera em terceira pessoa
     glm::vec4 GetThirdPersonCameraPosition()
     {
@@ -251,25 +256,20 @@ struct Player
         float z = position.z + camera_distance * cos(camera_angle_vertical) * cos(camera_angle_horizontal);
         return glm::vec4(x, y, z, 1.0f);
     }
-    
+
     // Calcula o ponto de look-at da câmera (um pouco acima do jogador)
     glm::vec4 GetCameraLookAt()
     {
         return glm::vec4(position.x, position.y + 1.0f, position.z, 1.0f);
     }
-    
+
     // Atualiza a posição do jogador baseado no movimento e no tempo decorrido
     // O movimento é relativo à direção da câmera (terceira pessoa)
     void UpdatePosition(float delta_time)
     {
         // Atualiza o estado de movimento
         UpdateMovementState();
-        
-        // Se não está se movendo, não faz nada
-        if (current_speed == 0.0f) {
-            return;
-        }
-        
+
         // Calcula a direção da câmera (forward da câmera)
         glm::vec4 camera_forward = GetCameraLookAt() - GetThirdPersonCameraPosition();
 
@@ -277,12 +277,16 @@ struct Player
 
         float camera_forward_length = sqrt(camera_forward.x * camera_forward.x + camera_forward.z * camera_forward.z);
 
+        // Atualiza a rotação do jogador para sempre corresponder à direção forward da câmera
         if (camera_forward_length > 0.001f)
         {
             camera_forward.x /= camera_forward_length;
             camera_forward.z /= camera_forward_length;
+
+            // A rotação do jogador sempre corresponde à direção forward da câmera
+            rotation_y = atan2(camera_forward.x, -camera_forward.z);
         }
-        
+
         // Calcula a direção direita da câmera (perpendicular ao forward no plano horizontal)
         glm::vec4 camera_right = crossproduct(camera_forward, glm::vec4(0.0f, 1.0f, 0.0f, 0.0f));
         float camera_right_length = sqrt(camera_right.x * camera_right.x + camera_right.z * camera_right.z);
@@ -291,10 +295,10 @@ struct Player
             camera_right.x /= camera_right_length;
             camera_right.z /= camera_right_length;
         }
-        
+
         // Calcula o vetor de movimento baseado nas teclas pressionadas
         glm::vec4 movement_direction = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
-        
+
         if (moving_forward)
             movement_direction = movement_direction + camera_forward;
         if (moving_backward)
@@ -303,25 +307,98 @@ struct Player
             movement_direction = movement_direction + camera_right;
         if (moving_left)
             movement_direction = movement_direction - camera_right;
-        
+
         // Normaliza o vetor de movimento se não for zero
         float movement_length = sqrt(movement_direction.x * movement_direction.x + movement_direction.z * movement_direction.z);
-        if (movement_length > 0.001f)
+        
+        // Atualiza a posição apenas se estiver se movendo
+        if (movement_length > 0.001f && current_speed > 0.0f)
         {
             movement_direction.x /= movement_length;
             movement_direction.z /= movement_length;
-            
-            // Atualiza a posição
+
             float move_distance = current_speed * delta_time;
             position.x += movement_direction.x * move_distance;
             position.z += movement_direction.z * move_distance;
-            
-            // Atualiza a rotação do jogador para olhar na direção do movimento
-            if (movement_length > 0.001f)
-            {
-                rotation_y = atan2(movement_direction.x, -movement_direction.z);
-            }
         }
+    }
+};
+
+// Estrutura que representa um inimigo
+struct Enemy
+{
+    // Posição e orientação
+    glm::vec4 position;           // Posição atual do inimigo no mundo (x, y, z, 1.0)
+    glm::vec4 spawn_position;     // Posição inicial de spawn do inimigo
+    float rotation_y;            // Rotação em torno do eixo Y (em radianos) - direção que o inimigo está olhando
+    glm::vec4 forward_vector;    // Vetor direção para frente do inimigo (normalizado)
+    glm::vec4 right_vector;      // Vetor direção para direita do inimigo (normalizado)
+
+    // Estados de movimento (monstros não podem correr, apenas caminhar, agachar ou ficar em pé)
+    enum MovementState {
+        IDLE,
+        WALKING,
+        CROUCHING,
+        STANDING
+    };
+    MovementState movement_state;
+
+    // Velocidades
+    float walk_speed;            // Velocidade de caminhada
+    float current_speed;         // Velocidade atual (calculada baseada no estado)
+
+    // Status do inimigo
+    float health;                // Vida do inimigo (0.0 a 100.0)
+    float max_health;            // Vida máxima
+
+    // Construtor
+    Enemy(glm::vec4 spawn_pos)
+        : position(spawn_pos)
+        , spawn_position(spawn_pos)
+        , rotation_y(0.0f)
+        , forward_vector(glm::vec4(0.0f, 0.0f, -1.0f, 0.0f))
+        , right_vector(glm::vec4(1.0f, 0.0f, 0.0f, 0.0f))
+        , movement_state(IDLE)
+        , walk_speed(1.5f)
+        , current_speed(0.0f)
+        , max_health(100.0f)
+        , health(max_health)
+    {
+    }
+
+    // Atualiza os vetores de direção baseado na rotação Y
+    void UpdateDirectionVectors()
+    {
+        forward_vector = glm::vec4(
+            sin(rotation_y),
+            0.0f,
+            -cos(rotation_y),
+            0.0f
+        );
+        right_vector = glm::vec4(
+            cos(rotation_y),
+            0.0f,
+            sin(rotation_y),
+            0.0f
+        );
+    }
+
+    // Atualiza o estado de movimento (inimigos ficam parados por enquanto)
+    void UpdateMovementState()
+    {
+        // Inimigos ficam em estado IDLE por padrão
+        movement_state = IDLE;
+        current_speed = 0.0f;
+    }
+
+    // Atualiza a posição do inimigo (inimigos não se movem por enquanto)
+    void UpdatePosition(float delta_time)
+    {
+        // Atualiza o estado de movimento
+        UpdateMovementState();
+        
+        // Inimigos permanecem na posição de spawn
+        // (sem movimento por enquanto)
     }
 };
 
@@ -332,6 +409,7 @@ struct Player
 // A cena virtual é uma lista de objetos nomeados, guardados em um dicionário (map).
 // Veja dentro da função BuildTrianglesAndAddToVirtualScene() como que são incluídos objetos dentro da variável g_VirtualScene
 // Veja na função main() como estes são acessados.
+
 std::map<std::string, SceneObject> g_VirtualScene;
 
 // Pilha que guardará as matrizes de modelagem.
@@ -354,6 +432,9 @@ float g_CameraDistance = 3.5f; // Distância da câmera para a origem
 
 // Instância do jogador
 Player g_Player;
+
+// Lista de inimigos
+std::vector<Enemy> g_Enemies;
 
 // Variável que controla o tipo de projeção utilizada: perspectiva ou ortográfica.
 bool g_UsePerspectiveProjection = true;
@@ -380,6 +461,10 @@ GLint g_bbox_max_uniform;
 
 // Número de texturas carregadas pela função LoadTextureImage()
 GLuint g_NumLoadedTextures = 0;
+
+// VAO e VBO para renderização de linhas (indicadores de direção)
+GLuint g_LineVAO = 0;
+GLuint g_LineVBO = 0;
 
 int main(int argc, char* argv[])
 {
@@ -434,11 +519,11 @@ int main(int argc, char* argv[])
     // Carregamento de todas funções definidas por OpenGL 3.3, utilizando a
     // biblioteca GLAD.
     gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
-    
+
     // Configuramos o cursor para ficar desabilitado (escondido e travado na janela)
     // Isso permite movimento ilimitado do mouse para controle da câmera
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-    
+
     // Inicializamos a posição do cursor no centro da janela
     glfwGetCursorPos(window, &g_LastCursorPosX, &g_LastCursorPosY);
 
@@ -471,18 +556,22 @@ int main(int argc, char* argv[])
     ComputeNormals(&planemodel);
     BuildTrianglesAndAddToVirtualScene(&planemodel);
 
-    // Carregamos o modelo do jogador (bunny)
-    ObjModel playermodel("../../data/bunny.obj");
+    // Carregamos o modelo do jogador (cube)
+    ObjModel playermodel("../../data/cube.obj");
     ComputeNormals(&playermodel);
     BuildTrianglesAndAddToVirtualScene(&playermodel);
 
     // Inicializamos a posição do jogador (acima do plano, que está em y = -1.1)
     g_Player.position = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
     g_Player.UpdateDirectionVectors();
-    
+
     // Inicializamos a câmera para começar olhando para o jogador
     g_Player.camera_angle_horizontal = 0.0f;
     g_Player.camera_angle_vertical = 0.3f;
+
+    // Inicializamos alguns inimigos
+    g_Enemies.push_back(Enemy(glm::vec4(2.0f, 0.0f, 0.0f, 1.0f)));
+    g_Enemies.push_back(Enemy(glm::vec4(-2.0f, 0.0f, 0.0f, 1.0f)));
 
     if ( argc > 1 )
     {
@@ -511,7 +600,7 @@ int main(int argc, char* argv[])
         float current_time = (float)glfwGetTime();
         float delta_time = current_time - g_LastFrameTime;
         g_LastFrameTime = current_time;
-        
+
         // Limita o delta time para evitar problemas com frames muito longos
         if (delta_time > 0.1f)
             delta_time = 0.1f;
@@ -530,10 +619,17 @@ int main(int argc, char* argv[])
 
         // Atualizamos a posição do jogador baseado no movimento
         g_Player.UpdatePosition(delta_time);
-        
+
         // Atualizamos os vetores de direção do jogador
         g_Player.UpdateDirectionVectors();
-        
+
+        // Atualizamos todos os inimigos
+        for (auto& enemy : g_Enemies)
+        {
+            enemy.UpdatePosition(delta_time);
+            enemy.UpdateDirectionVectors();
+        }
+
         // Câmera em terceira pessoa seguindo o jogador
         // A câmera é posicionada usando o sistema de terceira pessoa do jogador
         glm::vec4 camera_position_c  = g_Player.GetThirdPersonCameraPosition(); // Posição da câmera em terceira pessoa
@@ -573,11 +669,12 @@ int main(int argc, char* argv[])
         glUniformMatrix4fv(g_projection_uniform , 1 , GL_FALSE , glm::value_ptr(projection));
 
         #define PLANE  0
-        #define SPHERE 1
+        #define PLAYER 1
+        #define ENEMY  2
 
         // Desenhamos o plano do chão
         model = Matrix_Translate(0.0f,-1.1f,0.0f);
-        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, PLANE);
         DrawVirtualObject("the_plane");
 
@@ -587,9 +684,45 @@ int main(int argc, char* argv[])
         model = model * Matrix_Rotate_Y(g_Player.rotation_y);
         // Escalamos um pouco para que o jogador seja visível
         model = model * Matrix_Scale(0.3f, 0.3f, 0.3f);
-        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(g_object_id_uniform, SPHERE);
-        DrawVirtualObject("the_bunny");
+        glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
+        glUniform1i(g_object_id_uniform, PLAYER);
+        DrawVirtualObject("the_cube");
+
+        // Desenhamos todos os inimigos (usando o mesmo modelo do jogador)
+        for (const auto& enemy : g_Enemies)
+        {
+            // Ajusta a escala baseada no estado (agachado é menor)
+            float scale_y = 0.3f;
+            if (enemy.movement_state == Enemy::CROUCHING)
+            {
+                scale_y = 0.2f; // Inimigo agachado é mais baixo
+            }
+            else if (enemy.movement_state == Enemy::STANDING)
+            {
+                scale_y = 0.3f; // Inimigo em pé é normal
+            }
+
+            model = Matrix_Translate(enemy.position.x, enemy.position.y, enemy.position.z);
+            model = model * Matrix_Rotate_Y(enemy.rotation_y);
+            // Escala diferente para Y quando agachado
+            model = model * Matrix_Scale(0.3f, scale_y, 0.3f);
+            glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
+            glUniform1i(g_object_id_uniform, ENEMY);
+            DrawVirtualObject("the_cube");
+        }
+
+        // Desenhamos indicadores de direção para o jogador e inimigos
+        // Indicador do jogador (verde)
+        DrawDirectionIndicator(g_Player.position, g_Player.forward_vector, 0.8f, view, projection, true);
+        
+        // Indicadores dos inimigos (vermelho)
+        for (const auto& enemy : g_Enemies)
+        {
+            DrawDirectionIndicator(enemy.position, enemy.forward_vector, 0.8f, view, projection, false);
+        }
+
+        // Desenhamos o crosshair no centro da tela
+        DrawCrosshair(window);
 
         // Imprimimos na informação sobre a matriz de projeção sendo utilizada.
         TextRendering_ShowProjection(window);
@@ -1220,6 +1353,23 @@ void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
         // com o botão esquerdo pressionado.
         glfwGetCursorPos(window, &g_LastCursorPosX, &g_LastCursorPosY);
         g_LeftMouseButtonPressed = true;
+
+        // Realiza raycast do centro da tela
+        glm::vec4 camera_position = g_Player.GetThirdPersonCameraPosition();
+        glm::vec4 camera_lookat = g_Player.GetCameraLookAt();
+        glm::vec4 camera_view_vector = camera_lookat - camera_position;
+        
+        // Normaliza o vetor de direção da câmera
+        float view_length = sqrt(camera_view_vector.x * camera_view_vector.x + 
+                                 camera_view_vector.y * camera_view_vector.y + 
+                                 camera_view_vector.z * camera_view_vector.z);
+        if (view_length > 0.001f)
+        {
+            camera_view_vector.x /= view_length;
+            camera_view_vector.y /= view_length;
+            camera_view_vector.z /= view_length;
+            CameraRaycast(camera_position, camera_view_vector);
+        }
     }
     if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
     {
@@ -1275,8 +1425,10 @@ void CursorPosCallback(GLFWwindow* window, double xpos, double ypos)
     float dy = ypos - g_LastCursorPosY;
 
     // Atualizamos os ângulos da câmera em terceira pessoa do jogador
-    g_Player.camera_angle_horizontal -= 0.01f * dx;
-    g_Player.camera_angle_vertical   += 0.01f * dy;
+    // Sensibilidade reduzida da câmera
+    float camera_sensitivity = 0.003f;
+    g_Player.camera_angle_horizontal -= camera_sensitivity * dx;
+    g_Player.camera_angle_vertical   += camera_sensitivity * dy;
 
     // Limita o ângulo vertical para evitar que a câmera vá muito acima ou abaixo
     float vmax = 3.141592f/2.5f;  // Limite superior (câmera não vai muito acima)
@@ -1333,10 +1485,10 @@ void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset)
     const float verysmallnumber = std::numeric_limits<float>::epsilon();
     const float maxdistance = 20.0f; // Distância máxima
     const float mindistance = 1.0f;  // Distância mínima
-    
+
     if (g_Player.camera_distance < mindistance)
         g_Player.camera_distance = mindistance;
-    
+
     if (g_Player.camera_distance > maxdistance)
         g_Player.camera_distance = maxdistance;
 }
@@ -1387,7 +1539,7 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
         else if (action == GLFW_RELEASE)
             g_Player.moving_forward = false;
     }
-    
+
     if (key == GLFW_KEY_S)
     {
         if (action == GLFW_PRESS)
@@ -1395,7 +1547,7 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
         else if (action == GLFW_RELEASE)
             g_Player.moving_backward = false;
     }
-    
+
     if (key == GLFW_KEY_A)
     {
         if (action == GLFW_PRESS)
@@ -1403,7 +1555,7 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
         else if (action == GLFW_RELEASE)
             g_Player.moving_left = false;
     }
-    
+
     if (key == GLFW_KEY_D)
     {
         if (action == GLFW_PRESS)
@@ -1411,7 +1563,7 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
         else if (action == GLFW_RELEASE)
             g_Player.moving_right = false;
     }
-    
+
     // Shift para correr
     if (key == GLFW_KEY_LEFT_SHIFT || key == GLFW_KEY_RIGHT_SHIFT)
     {
@@ -1733,6 +1885,215 @@ void PrintObjModelInfo(ObjModel* model)
     }
     printf("\n");
   }
+}
+
+// Função que desenha um indicador de direção (linha) mostrando para onde a entidade está olhando
+void DrawDirectionIndicator(glm::vec4 position, glm::vec4 forward, float length, glm::mat4 view, glm::mat4 projection, bool is_player)
+{
+    // Cria VAO e VBO se ainda não existirem
+    if (g_LineVAO == 0)
+    {
+        glGenVertexArrays(1, &g_LineVAO);
+        glGenBuffers(1, &g_LineVBO);
+    }
+
+    // Calcula o ponto final da linha
+    glm::vec4 end_position = position + forward * length;
+
+    // Define os vértices da linha
+    float line_vertices[] = {
+        position.x, position.y, position.z, 1.0f,
+        end_position.x, end_position.y, end_position.z, 1.0f
+    };
+
+    // Configura o VAO
+    glBindVertexArray(g_LineVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, g_LineVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(line_vertices), line_vertices, GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(0);
+
+    // Usa o shader principal
+    glUseProgram(g_GpuProgramID);
+
+    // Matriz de modelagem identidade (linha já está em coordenadas do mundo)
+    glm::mat4 model = Matrix_Identity();
+    glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
+    glUniformMatrix4fv(g_view_uniform, 1, GL_FALSE, glm::value_ptr(view));
+    glUniformMatrix4fv(g_projection_uniform, 1, GL_FALSE, glm::value_ptr(projection));
+
+    // Define cor (verde para player, vermelho para inimigos)
+    #define DIRECTION_LINE_PLAYER 3
+    #define DIRECTION_LINE_ENEMY 5
+    glUniform1i(g_object_id_uniform, is_player ? DIRECTION_LINE_PLAYER : DIRECTION_LINE_ENEMY);
+
+    // Desabilita culling para linhas
+    glDisable(GL_CULL_FACE);
+    
+    // Desenha a linha
+    glLineWidth(3.0f);
+    glDrawArrays(GL_LINES, 0, 2);
+    glLineWidth(1.0f);
+
+    // Reabilita culling
+    glEnable(GL_CULL_FACE);
+
+    glBindVertexArray(0);
+}
+
+// Função que desenha um crosshair no centro da tela
+void DrawCrosshair(GLFWwindow* window)
+{
+    int width, height;
+    glfwGetFramebufferSize(window, &width, &height);
+
+    // Salva o estado atual
+    GLint viewport[4];
+    glGetIntegerv(GL_VIEWPORT, viewport);
+    
+    // Desabilita depth test para o crosshair
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    // Configura viewport para coordenadas de tela
+    glViewport(0, 0, width, height);
+
+    // Cria VAO e VBO se ainda não existirem
+    if (g_LineVAO == 0)
+    {
+        glGenVertexArrays(1, &g_LineVAO);
+        glGenBuffers(1, &g_LineVBO);
+    }
+
+    // Tamanho do crosshair em pixels
+    float crosshair_size = 10.0f;
+    float outline_offset = 1.5f; // Offset do contorno em pixels
+    
+    // Converte coordenadas de tela para NDC (-1 a 1)
+    float center_x_ndc = 0.0f;
+    float center_y_ndc = 0.0f;
+    float size_x_ndc = (crosshair_size * 2.0f) / width;
+    float size_y_ndc = (crosshair_size * 2.0f) / height;
+    float outline_x_ndc = (outline_offset * 2.0f) / width;
+    float outline_y_ndc = (outline_offset * 2.0f) / height;
+
+    // Usa o shader principal
+    glUseProgram(g_GpuProgramID);
+
+    // Matrizes de transformação para 2D (coordenadas normalizadas - já estamos em NDC)
+    glm::mat4 model = Matrix_Identity();
+    glm::mat4 view = Matrix_Identity();
+    glm::mat4 projection = Matrix_Identity(); // Já estamos em coordenadas normalizadas
+
+    glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
+    glUniformMatrix4fv(g_view_uniform, 1, GL_FALSE, glm::value_ptr(view));
+    glUniformMatrix4fv(g_projection_uniform, 1, GL_FALSE, glm::value_ptr(projection));
+
+    // Primeiro desenha o contorno escuro (um pouco maior)
+    #define CROSSHAIR_OUTLINE 6
+    glUniform1i(g_object_id_uniform, CROSSHAIR_OUTLINE);
+    
+    // Define os vértices do contorno do crosshair (linha horizontal e vertical, ligeiramente deslocadas)
+    float outline_vertices[] = {
+        // Linha horizontal (com offset para criar contorno)
+        center_x_ndc - size_x_ndc - outline_x_ndc, center_y_ndc, 0.0f, 1.0f,
+        center_x_ndc + size_x_ndc + outline_x_ndc, center_y_ndc, 0.0f, 1.0f,
+        // Linha vertical (com offset para criar contorno)
+        center_x_ndc, center_y_ndc - size_y_ndc - outline_y_ndc, 0.0f, 1.0f,
+        center_x_ndc, center_y_ndc + size_y_ndc + outline_y_ndc, 0.0f, 1.0f
+    };
+
+    // Configura o VAO para o contorno
+    glBindVertexArray(g_LineVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, g_LineVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(outline_vertices), outline_vertices, GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(0);
+
+    // Desenha o contorno (mais grosso)
+    glLineWidth(4.0f);
+    glDrawArrays(GL_LINES, 0, 4);
+
+    // Agora desenha o crosshair verde (sobre o contorno)
+    #define CROSSHAIR 4
+    glUniform1i(g_object_id_uniform, CROSSHAIR);
+    
+    // Define os vértices do crosshair verde em NDC (linha horizontal e vertical)
+    float crosshair_vertices[] = {
+        // Linha horizontal
+        center_x_ndc - size_x_ndc, center_y_ndc, 0.0f, 1.0f,
+        center_x_ndc + size_x_ndc, center_y_ndc, 0.0f, 1.0f,
+        // Linha vertical
+        center_x_ndc, center_y_ndc - size_y_ndc, 0.0f, 1.0f,
+        center_x_ndc, center_y_ndc + size_y_ndc, 0.0f, 1.0f
+    };
+
+    // Atualiza o buffer com os vértices do crosshair verde
+    glBufferData(GL_ARRAY_BUFFER, sizeof(crosshair_vertices), crosshair_vertices, GL_DYNAMIC_DRAW);
+
+    // Desenha o crosshair verde (mais fino, sobre o contorno)
+    glLineWidth(2.0f);
+    glDrawArrays(GL_LINES, 0, 4);
+    glLineWidth(1.0f);
+
+    glBindVertexArray(0);
+
+    // Restaura o viewport original
+    glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+
+    // Restaura estados
+    glDisable(GL_BLEND);
+    glEnable(GL_DEPTH_TEST);
+}
+
+// Função que realiza raycast e verifica interseções com entidades
+void CameraRaycast(glm::vec4 camera_position, glm::vec4 ray_direction)
+{
+    const float max_ray_distance = 100.0f;
+    const float entity_radius = 0.3f; // Raio aproximado das entidades (baseado na escala)
+
+    // Verifica interseção com o jogador
+    glm::vec4 to_player = g_Player.position - camera_position;
+    float t_player = glm::dot(glm::vec3(to_player), glm::vec3(ray_direction));
+    
+    if (t_player > 0.0f && t_player < max_ray_distance)
+    {
+        glm::vec4 closest_point = camera_position + ray_direction * t_player;
+        glm::vec4 to_closest = closest_point - g_Player.position;
+        float distance_sq = to_closest.x * to_closest.x + to_closest.y * to_closest.y + to_closest.z * to_closest.z;
+        
+        if (distance_sq <= entity_radius * entity_radius)
+        {
+            printf("Raycast hit: PLAYER at distance %.2f\n", t_player);
+            // Aqui você pode adicionar lógica adicional, como dano, etc.
+            return;
+        }
+    }
+
+    // Verifica interseção com inimigos
+    for (size_t i = 0; i < g_Enemies.size(); ++i)
+    {
+        const auto& enemy = g_Enemies[i];
+        glm::vec4 to_enemy = enemy.position - camera_position;
+        float t_enemy = glm::dot(glm::vec3(to_enemy), glm::vec3(ray_direction));
+        
+        if (t_enemy > 0.0f && t_enemy < max_ray_distance)
+        {
+            glm::vec4 closest_point = camera_position + ray_direction * t_enemy;
+            glm::vec4 to_closest = closest_point - enemy.position;
+            float distance_sq = to_closest.x * to_closest.x + to_closest.y * to_closest.y + to_closest.z * to_closest.z;
+            
+            if (distance_sq <= entity_radius * entity_radius)
+            {
+                printf("Raycast hit: ENEMY %zu at distance %.2f\n", i, t_enemy);
+                // Aqui você pode adicionar lógica adicional, como dano, etc.
+                return;
+            }
+        }
+    }
+
+    printf("Raycast: No hit\n");
 }
 
 // set makeprg=cd\ ..\ &&\ make\ run\ >/dev/null
