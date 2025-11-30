@@ -19,9 +19,11 @@ uniform mat4 view;
 uniform mat4 projection;
 
 // Identificador que define qual objeto está sendo desenhado no momento
-#define SPHERE 0
-#define BUNNY  1
-#define PLANE  2
+#define SPHERE 4
+#define BUNNY  3
+#define PLANE  0
+#define PLAYER 1
+#define ENEMY  2
 uniform int object_id;
 
 // Parâmetros da axis-aligned bounding box (AABB) do modelo
@@ -119,36 +121,40 @@ void main()
     }
 
     // Tratamento especial para linhas de direção e crosshair
-    if ( object_id == 3 ) // DIRECTION_LINE_PLAYER - linha verde para player
+    if ( object_id == 5 ) // DIRECTION_LINE_PLAYER - linha verde para player
     {
         // Cor verde para indicadores de direção do player
         color.rgb = vec3(0.0, 1.0, 0.0);
     }
-    else if ( object_id == 4 ) // CROSSHAIR - verde
+    else if ( object_id == 6 ) // CROSSHAIR - verde
     {
         // Cor verde para crosshair
         color.rgb = vec3(0.0, 1.0, 0.0);
     }
-    else if ( object_id == 6 ) // CROSSHAIR_OUTLINE - contorno escuro
+    else if ( object_id == 7 ) // CROSSHAIR_OUTLINE - contorno escuro
     {
         // Cor escura para contorno do crosshair
         color.rgb = vec3(0.0, 0.0, 0.0);
     }
-    else if ( object_id == 5 ) // DIRECTION_LINE_ENEMY - linha vermelha para inimigos
+    else if ( object_id == 8 ) // DIRECTION_LINE_ENEMY - linha vermelha para inimigos
     {
         // Cor vermelha para indicadores de direção dos inimigos
         color.rgb = vec3(1.0, 0.0, 0.0);
     }
+    else if (object_id == PLAYER)
+    {
+        // coordenadas já vieram do OBJ
+        vec3 texcolor = texture(TextureImage0, texcoords).rgb;
+        float lambert = max(0, dot(n,l));
+        color.rgb = texcolor * (lambert + 0.2);
+    }
     else
     {
-        // Obtemos a refletância difusa a partir da leitura da imagem TextureImage0
         vec3 Kd0 = texture(TextureImage0, vec2(U,V)).rgb;
-
-        // Equação de Iluminação
         float lambert = max(0,dot(n,l));
-
         color.rgb = Kd0 * (lambert + 0.01);
     }
+
 
     // NOTE: Se você quiser fazer o rendering de objetos transparentes, é
     // necessário:
@@ -168,4 +174,3 @@ void main()
     // Veja https://en.wikipedia.org/w/index.php?title=Gamma_correction&oldid=751281772#Windows.2C_Mac.2C_sRGB_and_TV.2Fvideo_standard_gammas
     color.rgb = pow(color.rgb, vec3(1.0,1.0,1.0)/2.2);
 } 
-

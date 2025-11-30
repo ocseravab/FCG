@@ -1,0 +1,252 @@
+# File produced by Open Asset Import Library (http://www.assimp.sf.net)
+# (assimp v5.0.0)
+
+newmtl Material_37
+Kd 1 1 1
+Ka 0.1 0.1 0.1
+Ks 0.40000001 0.40000001 0.40000001
+Ke 0 0 0
+Ni 1
+Ns 10
+illum 2
+map_Kd model/Material_37.png
+
+newmtl Material_1
+Kd 1 1 1
+Ka 0.1 0.1 0.1
+Ks 0.40000001 0.40000001 0.40000001
+Ke 0 0 0
+Ni 1
+Ns 10
+illum 2
+map_Kd model/Material_1.png
+
+newmtl Material_5
+Kd 1 1 1
+Ka 0.1 0.1 0.1
+Ks 0.40000001 0.40000001 0.40000001
+Ke 0 0 0
+Ni 1
+Ns 10
+illum 2
+map_Kd model/Material_5.png
+
+newmtl Material__1
+Kd 1 1 1
+Ka 0.1 0.1 0.1
+Ks 0.40000001 0.40000001 0.40000001
+Ke 0 0 0
+Ni 1
+Ns 10
+illum 2
+map_Kd model/Material__1.jpg
+
+newmtl edge_color876350255
+Kd 0.60000002 0.60000002 0.60000002
+Ka 0.1 0.1 0.1
+Ks 0.40000001 0.40000001 0.40000001
+Ke 0 0 0
+d 1
+Ni 1
+Ns 10
+illum 2
+
+newmtl edge_color000255
+Kd 0.60000002 0.60000002 0.60000002
+Ka 0.1 0.1 0.1
+Ks 0.40000001 0.40000001 0.40000001
+Ke 0 0 0
+d 1
+Ni 1
+Ns 10
+illum 2
+
+newmtl russian_loyalist_upperbody_a_col1
+Kd 1 1 1
+Ka 0.1 0.1 0.1
+Ks 0.40000001 0.40000001 0.40000001
+Ke 0 0 0
+Ni 1
+Ns 10
+illum 2
+map_Kd model/russian_loyalist_upperbody_a_col1.jpg
+
+newmtl russian_loyalist_loadout_b_col
+Kd 1 1 1
+Ka 0.1 0.1 0.1
+Ks 0.40000001 0.40000001 0.40000001
+Ke 0 0 0
+Ni 1
+Ns 10
+illum 2
+map_Kd model/russian_loyalist_loadout_b_col.jpg
+
+newmtl russian_loyalist_lowerbody_a_col
+Kd 1 1 1
+Ka 0.1 0.1 0.1
+Ks 0.40000001 0.40000001 0.40000001
+Ke 0 0 0
+Ni 1
+Ns 10
+illum 2
+map_Kd model/russian_loyalist_lowerbody_a_col.jpg
+
+newmtl russian_loyalist_upperbody_a_col2
+Kd 1 1 1
+Ka 0.1 0.1 0.1
+Ks 0.40000001 0.40000001 0.40000001
+Ke 0 0 0
+Ni 1
+Ns 10
+illum 2
+map_Kd model/russian_loyalist_upperbody_a_col2.jpg
+
+newmtl russian_loyalist_loadout_a_col
+Kd 1 1 1
+Ka 0.1 0.1 0.1
+Ks 0.40000001 0.40000001 0.40000001
+Ke 0 0 0
+Ni 1
+Ns 10
+illum 2
+map_Kd model/russian_loyalist_loadout_a_col.jpg
+
+newmtl spetsnaz_nikolai_informant_clean_arms_col
+Kd 1 1 1
+Ka 0.1 0.1 0.1
+Ks 0.40000001 0.40000001 0.40000001
+Ke 0 0 0
+Ni 1
+Ns 10
+illum 2
+map_Kd model/spetsnaz_nikolai_informant_clean_arms_col.jpg
+
+newmtl Material_38
+Kd 1 1 1
+Ka 0.1 0.1 0.1
+Ks 0.40000001 0.40000001 0.40000001
+Ke 0 0 0
+Ni 1
+Ns 10
+illum 2
+map_Kd model/Material_38.png
+
+newmtl c_t9_cowboy_hat_01_more_dirt_c_defaultspec_7807893481039461458
+Kd 1 1 1
+Ka 0.1 0.1 0.1
+Ks 0.40000001 0.40000001 0.40000001
+Ke 0 0 0
+Ni 1
+Ns 10
+illum 2
+map_Kd model/c_t9_cowboy_hat_01_more_dirt_c_defaultspec_7807893481039461458.jpg
+
+newmtl c_t9_cowboy_hat_01_leather_strip_c_defaultspec_11875100017641845408
+Kd 1 1 1
+Ka 0.1 0.1 0.1
+Ks 0.40000001 0.40000001 0.40000001
+Ke 0 0 0
+Ni 1
+Ns 10
+illum 2
+map_Kd model/c_t9_cowboy_hat_01_leather_strip_c_defaultspec_11875100017641845408.jpg
+
+newmtl __0043_SaddleBrown_1
+Kd 1 1 1
+Ka 0.1 0.1 0.1
+Ks 0.40000001 0.40000001 0.40000001
+Ke 0 0 0
+Ni 1
+Ns 10
+illum 2
+map_Kd model/__0043_SaddleBrown_1.jpg
+
+newmtl Material.003_Hair12Main2k.png1
+Kd 0.43921569 0.43921569 0.43921569
+Ka 0.1 0.1 0.1
+Ks 0.40000001 0.40000001 0.40000001
+Ke 0 0 0
+Ni 1
+Ns 10
+illum 2
+
+newmtl max_MT_Horse_Body4
+Kd 1 1 1
+Ka 0.1 0.1 0.1
+Ks 0.40000001 0.40000001 0.40000001
+Ke 0 0 0
+Ni 1
+Ns 10
+illum 2
+map_Kd model/max_MT_Horse_Body4.jpg
+
+newmtl edge_color14812480255
+Kd 0.60000002 0.60000002 0.60000002
+Ka 0.1 0.1 0.1
+Ks 0.40000001 0.40000001 0.40000001
+Ke 0 0 0
+d 1
+Ni 1
+Ns 10
+illum 2
+
+newmtl max_MT_Horse_Eye2
+Kd 1 1 1
+Ka 0.1 0.1 0.1
+Ks 0.40000001 0.40000001 0.40000001
+Ke 0 0 0
+Ni 1
+Ns 10
+illum 2
+map_Kd model/max_MT_Horse_Eye2.jpg
+
+newmtl max_MT_Horse_Saddle4
+Kd 1 1 1
+Ka 0.1 0.1 0.1
+Ks 0.40000001 0.40000001 0.40000001
+Ke 0 0 0
+Ni 1
+Ns 10
+illum 2
+map_Kd model/max_MT_Horse_Saddle4.jpg
+
+newmtl Material_6
+Kd 1 1 1
+Ka 0.1 0.1 0.1
+Ks 0.40000001 0.40000001 0.40000001
+Ke 0 0 0
+Ni 1
+Ns 10
+illum 2
+map_Kd model/Material_6.png
+
+newmtl __Metal_Corrugated_Shiny_2
+Kd 1 1 1
+Ka 0.1 0.1 0.1
+Ks 0.40000001 0.40000001 0.40000001
+Ke 0 0 0
+Ni 1
+Ns 10
+illum 2
+map_Kd model/__Metal_Corrugated_Shiny_2.jpg
+
+newmtl illust32
+Kd 1 1 1
+Ka 0.1 0.1 0.1
+Ks 0.40000001 0.40000001 0.40000001
+Ke 0 0 0
+Ni 1
+Ns 10
+illum 2
+map_Kd model/illust32.jpg
+
+newmtl Material_3
+Kd 1 1 1
+Ka 0.1 0.1 0.1
+Ks 0.40000001 0.40000001 0.40000001
+Ke 0 0 0
+Ni 1
+Ns 10
+illum 2
+map_Kd model/Material_3.png
+

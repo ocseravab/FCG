@@ -11,6 +11,7 @@
 
 #include <set>
 #include <map>
+#include <unordered_map>
 #include <stack>
 #include <string>
 #include <vector>
@@ -102,7 +103,7 @@ void PopMatrix(glm::mat4& M);
 void BuildTrianglesAndAddToVirtualScene(ObjModel*); // Constrói representação de um ObjModel como malha de triângulos para renderização
 void ComputeNormals(ObjModel* model); // Computa normais de um ObjModel, caso não existam.
 void LoadShadersFromFiles(); // Carrega os shaders de vértice e fragmento, criando um programa de GPU
-void LoadTextureImage(const char* filename); // Função que carrega imagens de textura
+GLuint LoadTextureImage(const char* filename); // Função que carrega imagens de textura
 void DrawVirtualObject(const char* object_name); // Desenha um objeto armazenado em g_VirtualScene
 void DrawDirectionIndicator(glm::vec4 position, glm::vec4 forward, float length, glm::mat4 view, glm::mat4 projection, bool is_player = false); // Desenha indicador de direção
 void DrawCrosshair(GLFWwindow* window); // Desenha crosshair no centro da tela
@@ -145,6 +146,7 @@ void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 struct SceneObject
 {
     std::string  name;        // Nome do objeto
+    std::string  material_name;
     size_t       first_index; // Índice do primeiro vértice dentro do vetor indices[] definido em BuildTrianglesAndAddToVirtualScene()
     size_t       num_indices; // Número de índices do objeto dentro do vetor indices[] definido em BuildTrianglesAndAddToVirtualScene()
     GLenum       rendering_mode; // Modo de rasterização (GL_TRIANGLES, GL_TRIANGLE_STRIP, etc.)
@@ -450,6 +452,8 @@ float g_LastFrameTime = 0.0f;
 // Utilizadas no callback CursorPosCallback().
 double g_LastCursorPosX, g_LastCursorPosY;
 
+std::unordered_map<std::string, GLuint> g_textureID;
+
 // Variáveis que definem um programa de GPU (shaders). Veja função LoadShadersFromFiles().
 GLuint g_GpuProgramID = 0;
 GLint g_model_uniform;
@@ -465,6 +469,46 @@ GLuint g_NumLoadedTextures = 0;
 // VAO e VBO para renderização de linhas (indicadores de direção)
 GLuint g_LineVAO = 0;
 GLuint g_LineVBO = 0;
+
+// ======================================================
+// CARREGA TODAS AS TEXTURAS CORRETAS DO COWBOY
+// ======================================================
+void LoadAllCowboyTextures()
+{
+    std::vector<std::pair<std::string, std::string>> material_to_file = {
+
+	{"__0043_SaddleBrown_1", "__0043_SaddleBrown_1.jpg"},
+	{"c_t9_cowboy_hat_01_leather_strip_c_defaultspec_11875100017641845408", 	"c_t9_cowboy_hat_01_leather_strip_c_defaultspec_11875100017641845408.jpg"},
+	{"c_t9_cowboy_hat_01_more_dirt_c_defaultspec_7807893481039461458", "c_t9_cowboy_hat_01_more_dirt_c_defaultspec_7807893481039461458.jpg"},
+	{"illust32", "illust32.jpg"},
+	{"Material__1", "Material__1.jpg"},
+	{"Material_1", "Material_1.png"},
+	{"Material_37", "Material_37.png"},
+	{"Material_38", "Material_38.png"},
+	{"Material_3", "Material_3.png"},
+	{"Material_5", "Material_5.png"},
+	{"Material_6", "Material_6.png"},
+	{"max_MT_Horse_Body4", "max_MT_Horse_Body4.jpg"},
+	{"max_MT_Horse_Eye2", "max_MT_Horse_Eye2.jpg"},
+	{"max_MT_Horse_Saddle4", "max_MT_Horse_Saddle4.jpg"},
+	{"__Metal_Corrugated_Shiny_2", "__Metal_Corrugated_Shiny_2.jpg"},
+	{"russian_loyalist_loadout_a_col", "russian_loyalist_loadout_a_col.jpg"},
+	{"russian_loyalist_loadout_b_col", "russian_loyalist_loadout_b_col.jpg"},
+	{"russian_loyalist_lowerbody_a_col", "russian_loyalist_lowerbody_a_col.jpg"},
+	{"russian_loyalist_upperbody_a_col1", "russian_loyalist_upperbody_a_col1.jpg"},
+	{"russian_loyalist_upperbody_a_col2", "russian_loyalist_upperbody_a_col2.jpg"},
+	{"spetsnaz_nikolai_informant_clean_arms_col", "spetsnaz_nikolai_informant_clean_arms_col.jpg"},
+    };
+
+    for (auto& mat : material_to_file)
+    {
+        GLuint tex = LoadTextureImage(("../../data/model/" + mat.second).c_str());
+        g_textureID[mat.first] = tex;
+        printf("✔ TEXTURA carregada: %-40s  → ID = %u\n",
+               mat.first.c_str(), tex);
+    }
+}
+
 
 int main(int argc, char* argv[])
 {
@@ -546,20 +590,32 @@ int main(int argc, char* argv[])
     //
     LoadShadersFromFiles();
 
-    // Carregamos duas imagens para serem utilizadas como textura
-    LoadTextureImage("../../data/tc-earth_daymap_surface.jpg");      // TextureImage0
-    LoadTextureImage("../../data/tc-earth_nightmap_citylights.gif"); // TextureImage1
-
     // Construímos a representação de objetos geométricos através de malhas de triângulos
 
     ObjModel planemodel("../../data/plane.obj");
     ComputeNormals(&planemodel);
     BuildTrianglesAndAddToVirtualScene(&planemodel);
 
-    // Carregamos o modelo do jogador (cube)
-    ObjModel playermodel("../../data/cube.obj");
-    ComputeNormals(&playermodel);
-    BuildTrianglesAndAddToVirtualScene(&playermodel);
+    // Carregamos o modelo do jogador (cowboy)...
+    ObjModel cowboymodel("../../data/cowboy.obj");
+    ComputeNormals(&cowboymodel);
+    BuildTrianglesAndAddToVirtualScene(&cowboymodel);
+    LoadAllCowboyTextures();
+
+    for (const auto &obj : g_VirtualScene)
+    {
+        // Ignora chão e cubo pra focar no cowboy
+        if (obj.first == "the_plane" || obj.first == "the_cube")
+            continue;
+    
+        printf("OBJETO \"%s\" usa MATERIAL \"%s\"\n",
+               obj.first.c_str(), obj.second.material_name.c_str());
+    }
+
+    //... e o modelo dos inimigos (the_cube)...
+    ObjModel enemymodel("../../data/cube.obj");
+    ComputeNormals(&enemymodel);
+    BuildTrianglesAndAddToVirtualScene(&enemymodel);
 
     // Inicializamos a posição do jogador (acima do plano, que está em y = -1.1)
     g_Player.position = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
@@ -686,9 +742,17 @@ int main(int argc, char* argv[])
         model = model * Matrix_Scale(0.3f, 0.3f, 0.3f);
         glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, PLAYER);
-        DrawVirtualObject("the_cube");
+        for (const auto& obj : g_VirtualScene)
+        {
+            // Ignorar os objetos anteriores (chão e cubo)
+            if (obj.first == "the_plane" || obj.first == "the_cube")
+                 continue;
+        
+            glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
+            DrawVirtualObject(obj.first.c_str());
+        }
 
-        // Desenhamos todos os inimigos (usando o mesmo modelo do jogador)
+        // Desenhamos todos os inimigos
         for (const auto& enemy : g_Enemies)
         {
             // Ajusta a escala baseada no estado (agachado é menor)
@@ -701,7 +765,6 @@ int main(int argc, char* argv[])
             {
                 scale_y = 0.3f; // Inimigo em pé é normal
             }
-
             model = Matrix_Translate(enemy.position.x, enemy.position.y, enemy.position.z);
             model = model * Matrix_Rotate_Y(enemy.rotation_y);
             // Escala diferente para Y quando agachado
@@ -754,7 +817,7 @@ int main(int argc, char* argv[])
 }
 
 // Função que carrega uma imagem para ser utilizada como textura
-void LoadTextureImage(const char* filename)
+GLuint LoadTextureImage(const char* filename)
 {
     printf("Carregando imagem \"%s\"... ", filename);
 
@@ -803,12 +866,28 @@ void LoadTextureImage(const char* filename)
     stbi_image_free(data);
 
     g_NumLoadedTextures += 1;
+    
+    return texture_id;
 }
 
 // Função que desenha um objeto armazenado em g_VirtualScene. Veja definição
 // dos objetos na função BuildTrianglesAndAddToVirtualScene().
 void DrawVirtualObject(const char* object_name)
 {
+    SceneObject obj = g_VirtualScene[object_name];
+    auto it = g_textureID.find(obj.material_name);
+    if (it != g_textureID.end())
+    {
+        glUniform1i(glGetUniformLocation(g_GpuProgramID, "use_texture"), 1);
+        glActiveTexture(GL_TEXTURE0);  // ativa slot 0
+        glBindTexture(GL_TEXTURE_2D, it->second);  // textura correta
+        glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage0"), 0);  // avisa ao shader
+    }
+    else
+    {
+        glUniform1i(glGetUniformLocation(g_GpuProgramID, "use_texture"), 0);
+    }
+    
     // "Ligamos" o VAO. Informamos que queremos utilizar os atributos de
     // vértices apontados pelo VAO criado pela função BuildTrianglesAndAddToVirtualScene(). Veja
     // comentários detalhados dentro da definição de BuildTrianglesAndAddToVirtualScene().
@@ -1110,6 +1189,20 @@ void BuildTrianglesAndAddToVirtualScene(ObjModel* model)
         theobject.num_indices    = last_index - first_index + 1; // Número de indices
         theobject.rendering_mode = GL_TRIANGLES;       // Índices correspondem ao tipo de rasterização GL_TRIANGLES.
         theobject.vertex_array_object_id = vertex_array_object_id;
+        
+	// TINYOBJLOADER – PEGANDO NOME DO MATERIAL CORRETAMENTE
+	int material_index = model->shapes[shape].mesh.material_ids.size() > 0 ?
+	                     model->shapes[shape].mesh.material_ids[0] : -1;
+	
+	if (material_index >= 0 && material_index < (int)model->materials.size())
+	{
+	    theobject.material_name = model->materials[material_index].name;
+	}
+	else
+	{
+	    theobject.material_name = "NO_MATERIAL";
+	}
+
 
         theobject.bbox_min = bbox_min;
         theobject.bbox_max = bbox_max;
