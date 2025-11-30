@@ -107,6 +107,7 @@ GLuint LoadTextureImage(const char* filename); // Função que carrega imagens d
 void DrawVirtualObject(const char* object_name); // Desenha um objeto armazenado em g_VirtualScene
 void DrawDirectionIndicator(glm::vec4 position, glm::vec4 forward, float length, glm::mat4 view, glm::mat4 projection, bool is_player = false); // Desenha indicador de direção
 void DrawCrosshair(GLFWwindow* window); // Desenha crosshair no centro da tela
+void DrawHealthBar(GLFWwindow* window, glm::vec4 world_position, float health, float max_health, glm::mat4 view, glm::mat4 projection); // Desenha barra de vida acima do inimigo
 void CameraRaycast(glm::vec4 camera_position, glm::vec4 ray_direction); // Realiza raycast e verifica interseções
 GLuint LoadShader_Vertex(const char* filename);   // Carrega um vertex shader
 GLuint LoadShader_Fragment(const char* filename); // Carrega um fragment shader
@@ -265,17 +266,19 @@ struct Player
         // Compensa o fato de que o modelo foi escalado com 0.3f
         float scale = 0.3f;
 
-        glm::vec3 offset(0.0f, 0.0f, 0.0f);
-        offset.x = 0.3f;    // ← TESTE pra empurrar pra esquerda/direita
-        offset.y = 0.0f;    // ← altura, se estiver baixo/alto
-        offset.z = 0.0f;    // ← raramente precisa ajustar Z
-
-        return glm::vec4(
-            position.x - model_center.x * scale + offset.x,          // deslocamento real do centro
-            position.y - model_center.y * scale + offset.y,   
-            position.z - model_center.z * scale + offset.z,
+        // Calcula o ponto de referência do jogador (centro do modelo)
+        // Olha diretamente para o centro do cowboy para mantê-lo centralizado
+        glm::vec4 player_reference = glm::vec4(
+            position.x - model_center.x * scale,
+            position.y - model_center.y * scale + camera_height,
+            position.z - model_center.z * scale,
             1.0f
         );
+
+        // Retorna o centro do jogador para manter o cowboy centralizado
+        // O crosshair ainda funciona porque é desenhado no centro da tela
+        // e o raycast usa o vetor de visualização da câmera
+        return player_reference;
     }
 
     // Atualiza a posição do jogador baseado no movimento e no tempo decorrido
@@ -330,7 +333,7 @@ struct Player
 
         // Normaliza o vetor de movimento se não for zero
         float movement_length = sqrt(movement_direction.x * movement_direction.x + movement_direction.z * movement_direction.z);
-        
+
         // Atualiza a posição apenas se estiver se movendo
         if (movement_length > 0.001f && current_speed > 0.0f)
         {
@@ -368,8 +371,8 @@ struct Enemy
     float current_speed;         // Velocidade atual (calculada baseada no estado)
 
     // Status do inimigo
-    float health;                // Vida do inimigo (0.0 a 100.0)
     float max_health;            // Vida máxima
+    float health;                // Vida do inimigo (0.0 a 100.0)
 
     // Construtor
     Enemy(glm::vec4 spawn_pos)
@@ -416,9 +419,26 @@ struct Enemy
     {
         // Atualiza o estado de movimento
         UpdateMovementState();
-        
+
         // Inimigos permanecem na posição de spawn
         // (sem movimento por enquanto)
+    }
+
+    // Aplica dano ao inimigo
+    void TakeDamage(float damage)
+    {
+        if (health <= 0.0f)
+            return; // Já está morto
+
+        health -= damage;
+        if (health < 0.0f)
+            health = 0.0f;
+    }
+
+    // Verifica se o inimigo está morto
+    bool IsDead() const
+    {
+        return health <= 0.0f;
     }
 };
 
@@ -617,23 +637,23 @@ int main(int argc, char* argv[])
     const float player_scale = 0.3f;
     const float ground_y = -1.1f;
     g_CowboyMinY = std::numeric_limits<float>::max();
-    
+
     for (const auto &obj : g_VirtualScene)
     {
         // Ignora chão e cubo pra focar no cowboy
         if (obj.first == "the_plane" || obj.first == "the_cube")
             continue;
-    
+
         printf("OBJETO \"%s\" usa MATERIAL \"%s\"\n",
                obj.first.c_str(), obj.second.material_name.c_str());
-        
+
         g_CowboyMinY = std::min(g_CowboyMinY, obj.second.bbox_min.y);
     }
-    
+
     SceneObject cowboy_obj = g_VirtualScene["cowboy"];
-    
+
     glm::vec3 g_CowboyCenterModel = (cowboy_obj.bbox_min + cowboy_obj.bbox_max) * 0.5f;
-    
+
     g_Player.model_center = g_CowboyCenterModel;   // agora o player sabe o centro real do modelo!
 
     float center_x = (cowboy_obj.bbox_min.x + cowboy_obj.bbox_max.x) * 0.5f;
@@ -784,7 +804,7 @@ int main(int argc, char* argv[])
             // Ignorar os objetos anteriores (chão e cubo)
             if (obj.first == "the_plane" || obj.first == "the_cube")
                  continue;
-        
+
             glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
             DrawVirtualObject(obj.first.c_str());
         }
@@ -813,12 +833,18 @@ int main(int argc, char* argv[])
 
         // Desenhamos indicadores de direção para o jogador e inimigos
         // Indicador do jogador (verde)
-        DrawDirectionIndicator(g_Player.position, g_Player.forward_vector, 0.8f, view, projection, true);
-        
+        // DrawDirectionIndicator(g_Player.position, g_Player.forward_vector, 0.8f, view, projection, true);
+
         // Indicadores dos inimigos (vermelho)
         for (const auto& enemy : g_Enemies)
         {
             DrawDirectionIndicator(enemy.position, enemy.forward_vector, 0.8f, view, projection, false);
+        }
+
+        // Desenhamos as barras de vida dos inimigos
+        for (const auto& enemy : g_Enemies)
+        {
+            DrawHealthBar(window, enemy.position, enemy.health, enemy.max_health, view, projection);
         }
 
         // Desenhamos o crosshair no centro da tela
@@ -903,7 +929,7 @@ GLuint LoadTextureImage(const char* filename)
     stbi_image_free(data);
 
     g_NumLoadedTextures += 1;
-    
+
     return texture_id;
 }
 
@@ -924,7 +950,7 @@ void DrawVirtualObject(const char* object_name)
     {
         glUniform1i(glGetUniformLocation(g_GpuProgramID, "use_texture"), 0);
     }
-    
+
     // "Ligamos" o VAO. Informamos que queremos utilizar os atributos de
     // vértices apontados pelo VAO criado pela função BuildTrianglesAndAddToVirtualScene(). Veja
     // comentários detalhados dentro da definição de BuildTrianglesAndAddToVirtualScene().
@@ -1226,11 +1252,11 @@ void BuildTrianglesAndAddToVirtualScene(ObjModel* model)
         theobject.num_indices    = last_index - first_index + 1; // Número de indices
         theobject.rendering_mode = GL_TRIANGLES;       // Índices correspondem ao tipo de rasterização GL_TRIANGLES.
         theobject.vertex_array_object_id = vertex_array_object_id;
-        
+
 	// TINYOBJLOADER – PEGANDO NOME DO MATERIAL CORRETAMENTE
 	int material_index = model->shapes[shape].mesh.material_ids.size() > 0 ?
 	                     model->shapes[shape].mesh.material_ids[0] : -1;
-	
+
 	if (material_index >= 0 && material_index < (int)model->materials.size())
 	{
 	    theobject.material_name = model->materials[material_index].name;
@@ -1488,10 +1514,10 @@ void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
         glm::vec4 camera_position = g_Player.GetThirdPersonCameraPosition();
         glm::vec4 camera_lookat = g_Player.GetCameraLookAt();
         glm::vec4 camera_view_vector = camera_lookat - camera_position;
-        
+
         // Normaliza o vetor de direção da câmera
-        float view_length = sqrt(camera_view_vector.x * camera_view_vector.x + 
-                                 camera_view_vector.y * camera_view_vector.y + 
+        float view_length = sqrt(camera_view_vector.x * camera_view_vector.x +
+                                 camera_view_vector.y * camera_view_vector.y +
                                  camera_view_vector.z * camera_view_vector.z);
         if (view_length > 0.001f)
         {
@@ -2059,7 +2085,7 @@ void DrawDirectionIndicator(glm::vec4 position, glm::vec4 forward, float length,
 
     // Desabilita culling para linhas
     glDisable(GL_CULL_FACE);
-    
+
     // Desenha a linha
     glLineWidth(3.0f);
     glDrawArrays(GL_LINES, 0, 2);
@@ -2080,7 +2106,7 @@ void DrawCrosshair(GLFWwindow* window)
     // Salva o estado atual
     GLint viewport[4];
     glGetIntegerv(GL_VIEWPORT, viewport);
-    
+
     // Desabilita depth test para o crosshair
     glDisable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
@@ -2099,7 +2125,7 @@ void DrawCrosshair(GLFWwindow* window)
     // Tamanho do crosshair em pixels
     float crosshair_size = 10.0f;
     float outline_offset = 1.5f; // Offset do contorno em pixels
-    
+
     // Converte coordenadas de tela para NDC (-1 a 1)
     float center_x_ndc = 0.0f;
     float center_y_ndc = 0.0f;
@@ -2123,7 +2149,7 @@ void DrawCrosshair(GLFWwindow* window)
     // Primeiro desenha o contorno escuro (um pouco maior)
     #define CROSSHAIR_OUTLINE 6
     glUniform1i(g_object_id_uniform, CROSSHAIR_OUTLINE);
-    
+
     // Define os vértices do contorno do crosshair (linha horizontal e vertical, ligeiramente deslocadas)
     float outline_vertices[] = {
         // Linha horizontal (com offset para criar contorno)
@@ -2148,7 +2174,7 @@ void DrawCrosshair(GLFWwindow* window)
     // Agora desenha o crosshair verde (sobre o contorno)
     #define CROSSHAIR 4
     glUniform1i(g_object_id_uniform, CROSSHAIR);
-    
+
     // Define os vértices do crosshair verde em NDC (linha horizontal e vertical)
     float crosshair_vertices[] = {
         // Linha horizontal
@@ -2177,6 +2203,173 @@ void DrawCrosshair(GLFWwindow* window)
     glEnable(GL_DEPTH_TEST);
 }
 
+// Função que desenha uma barra de vida acima de um inimigo
+void DrawHealthBar(GLFWwindow* window, glm::vec4 world_position, float health, float max_health, glm::mat4 view, glm::mat4 projection)
+{
+    int width, height;
+    glfwGetFramebufferSize(window, &width, &height);
+
+    // Projeta a posição 3D do mundo para coordenadas de tela
+    glm::mat4 model = Matrix_Identity();
+    glm::vec4 position_camera = view * model * world_position;
+    glm::vec4 position_clip = projection * position_camera;
+
+    // Se está atrás da câmera, não desenha
+    if (position_clip.w < 0.0f)
+        return;
+
+    // Converte para NDC
+    glm::vec3 position_ndc = glm::vec3(position_clip) / position_clip.w;
+
+    // Converte NDC para coordenadas de tela
+    float screen_x = (position_ndc.x + 1.0f) * 0.5f * width;
+    float screen_y = (1.0f - position_ndc.y) * 0.5f * height; // Inverte Y
+
+    // Offset para posicionar a barra acima do modelo (em pixels)
+    float bar_offset_y = 40.0f;
+    float bar_y = screen_y - bar_offset_y;
+
+    // Tamanho da barra de vida
+    float bar_width = 60.0f;
+    float bar_height = 8.0f;
+    float outline_thickness = 2.0f;
+
+    // Calcula a porcentagem de vida
+    float health_percentage = (max_health > 0.0f) ? (health / max_health) : 0.0f;
+    if (health_percentage < 0.0f) health_percentage = 0.0f;
+    if (health_percentage > 1.0f) health_percentage = 1.0f;
+
+    // Converte para NDC
+    float bar_width_ndc = (bar_width * 2.0f) / width;
+    float bar_height_ndc = (bar_height * 2.0f) / height;
+    float outline_ndc = (outline_thickness * 2.0f) / width;
+    float bar_x_ndc = (screen_x * 2.0f) / width - 1.0f;
+    float bar_y_ndc = 1.0f - (bar_y * 2.0f) / height;
+
+    // Salva o estado atual
+    GLint viewport[4];
+    glGetIntegerv(GL_VIEWPORT, viewport);
+
+    // Desabilita depth test para a barra de vida
+    // IMPORTANTE: Mantém depth test desabilitado mas garante ordem de renderização
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    // Garante que o último desenho fica por cima
+    glDepthFunc(GL_ALWAYS);
+
+    // Configura viewport para coordenadas de tela
+    glViewport(0, 0, width, height);
+
+    // Cria VAO e VBO se ainda não existirem
+    if (g_LineVAO == 0)
+    {
+        glGenVertexArrays(1, &g_LineVAO);
+        glGenBuffers(1, &g_LineVBO);
+    }
+
+    // Usa o shader principal
+    glUseProgram(g_GpuProgramID);
+
+    // Matrizes de transformação para 2D
+    model = Matrix_Identity();
+    glm::mat4 view_2d = Matrix_Identity();
+    glm::mat4 projection_2d = Matrix_Identity();
+
+    glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
+    glUniformMatrix4fv(g_view_uniform, 1, GL_FALSE, glm::value_ptr(view_2d));
+    glUniformMatrix4fv(g_projection_uniform, 1, GL_FALSE, glm::value_ptr(projection_2d));
+
+    // Configura o VAO
+    glBindVertexArray(g_LineVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, g_LineVBO);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(0);
+
+    // Desenha o contorno escuro (retângulo externo)
+    #define HEALTH_BAR_OUTLINE 7
+    glUniform1i(g_object_id_uniform, HEALTH_BAR_OUTLINE);
+
+    float outline_vertices[] = {
+        // Retângulo do contorno (4 linhas formando um retângulo)
+        bar_x_ndc - bar_width_ndc/2.0f - outline_ndc, bar_y_ndc - bar_height_ndc/2.0f - outline_ndc, 0.0f, 1.0f,
+        bar_x_ndc + bar_width_ndc/2.0f + outline_ndc, bar_y_ndc - bar_height_ndc/2.0f - outline_ndc, 0.0f, 1.0f,
+        bar_x_ndc + bar_width_ndc/2.0f + outline_ndc, bar_y_ndc - bar_height_ndc/2.0f - outline_ndc, 0.0f, 1.0f,
+        bar_x_ndc + bar_width_ndc/2.0f + outline_ndc, bar_y_ndc + bar_height_ndc/2.0f + outline_ndc, 0.0f, 1.0f,
+        bar_x_ndc + bar_width_ndc/2.0f + outline_ndc, bar_y_ndc + bar_height_ndc/2.0f + outline_ndc, 0.0f, 1.0f,
+        bar_x_ndc - bar_width_ndc/2.0f - outline_ndc, bar_y_ndc + bar_height_ndc/2.0f + outline_ndc, 0.0f, 1.0f,
+        bar_x_ndc - bar_width_ndc/2.0f - outline_ndc, bar_y_ndc + bar_height_ndc/2.0f + outline_ndc, 0.0f, 1.0f,
+        bar_x_ndc - bar_width_ndc/2.0f - outline_ndc, bar_y_ndc - bar_height_ndc/2.0f - outline_ndc, 0.0f, 1.0f
+    };
+
+    glBufferData(GL_ARRAY_BUFFER, sizeof(outline_vertices), outline_vertices, GL_DYNAMIC_DRAW);
+    glLineWidth(2.0f);
+    glDrawArrays(GL_LINES, 0, 8);
+
+    // Desenha o fundo cinza (HP faltando) - usando triângulos para preencher
+    #define HEALTH_BAR_BACKGROUND 8
+    glUniform1i(g_object_id_uniform, HEALTH_BAR_BACKGROUND);
+
+    float background_vertices[] = {
+        // Triângulo 1
+        bar_x_ndc - bar_width_ndc/2.0f, bar_y_ndc - bar_height_ndc/2.0f, 0.0f, 1.0f,
+        bar_x_ndc + bar_width_ndc/2.0f, bar_y_ndc - bar_height_ndc/2.0f, 0.0f, 1.0f,
+        bar_x_ndc + bar_width_ndc/2.0f, bar_y_ndc + bar_height_ndc/2.0f, 0.0f, 1.0f,
+        // Triângulo 2
+        bar_x_ndc - bar_width_ndc/2.0f, bar_y_ndc - bar_height_ndc/2.0f, 0.0f, 1.0f,
+        bar_x_ndc + bar_width_ndc/2.0f, bar_y_ndc + bar_height_ndc/2.0f, 0.0f, 1.0f,
+        bar_x_ndc - bar_width_ndc/2.0f, bar_y_ndc + bar_height_ndc/2.0f, 0.0f, 1.0f
+    };
+
+    glBufferData(GL_ARRAY_BUFFER, sizeof(background_vertices), background_vertices, GL_DYNAMIC_DRAW);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+
+    // Desenha a barra verde (HP atual) - apenas a parte proporcional
+    // IMPORTANTE: Desenha DEPOIS do fundo cinza para ficar por cima
+    #define HEALTH_BAR_FILL 9
+    glUniform1i(g_object_id_uniform, HEALTH_BAR_FILL);
+
+    float fill_width_ndc = bar_width_ndc * health_percentage;
+    float fill_left = bar_x_ndc - bar_width_ndc/2.0f;
+    float fill_right = fill_left + fill_width_ndc;
+
+    // Só desenha se houver HP (health_percentage > 0)
+    // IMPORTANTE: Desenha por último para garantir que fica por cima do fundo cinza
+    if (health_percentage > 0.001f)
+    {
+        // Pequeno offset interno para garantir que a barra verde fica dentro do contorno
+        float inner_offset = 0.5f / width; // 0.5 pixel em NDC
+        float fill_vertices[] = {
+            // Triângulo 1 - barra verde (HP atual)
+            fill_left + inner_offset, bar_y_ndc - bar_height_ndc/2.0f + inner_offset, 0.0f, 1.0f,
+            fill_right - inner_offset, bar_y_ndc - bar_height_ndc/2.0f + inner_offset, 0.0f, 1.0f,
+            fill_right - inner_offset, bar_y_ndc + bar_height_ndc/2.0f - inner_offset, 0.0f, 1.0f,
+            // Triângulo 2
+            fill_left + inner_offset, bar_y_ndc - bar_height_ndc/2.0f + inner_offset, 0.0f, 1.0f,
+            fill_right - inner_offset, bar_y_ndc + bar_height_ndc/2.0f - inner_offset, 0.0f, 1.0f,
+            fill_left + inner_offset, bar_y_ndc + bar_height_ndc/2.0f - inner_offset, 0.0f, 1.0f
+        };
+
+        glBufferData(GL_ARRAY_BUFFER, sizeof(fill_vertices), fill_vertices, GL_DYNAMIC_DRAW);
+        // Garante que está desenhando com fill mode
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+    }
+
+    glBindVertexArray(0);
+
+    // Restaura o viewport original
+    glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+
+    // Restaura estados
+    glDisable(GL_BLEND);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS); // Restaura função de depth padrão
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    glLineWidth(1.0f);
+}
+
 // Função que realiza raycast e verifica interseções com entidades
 void CameraRaycast(glm::vec4 camera_position, glm::vec4 ray_direction)
 {
@@ -2190,14 +2383,15 @@ void CameraRaycast(glm::vec4 camera_position, glm::vec4 ray_direction)
         g_Player.position.z - camera_position.z,
         0.0f
     );
+
     float t_player = glm::dot(glm::vec3(to_player), glm::vec3(ray_direction));
-    
+
     if (t_player > 0.0f && t_player < max_ray_distance)
     {
         glm::vec4 closest_point = camera_position + ray_direction * t_player;
         glm::vec4 to_closest = closest_point - g_Player.position;
         float distance_sq = to_closest.x * to_closest.x + to_closest.y * to_closest.y + to_closest.z * to_closest.z;
-        
+
         if (distance_sq <= entity_radius * entity_radius)
         {
             printf("Raycast hit: PLAYER at distance %.2f\n", t_player);
@@ -2207,27 +2401,45 @@ void CameraRaycast(glm::vec4 camera_position, glm::vec4 ray_direction)
     }
 
     // Verifica interseção com inimigos
+    const float player_damage_amount = 10.0f; // Quantidade de dano por tiro
+
     for (size_t i = 0; i < g_Enemies.size(); ++i)
     {
-        const auto& enemy = g_Enemies[i];
+        auto& enemy = g_Enemies[i];
+
+        // Pula inimigos que já estão mortos
+        if (enemy.IsDead())
+            continue;
+
         glm::vec4 to_enemy = glm::vec4(
             enemy.position.x - camera_position.x,
             enemy.position.y - camera_position.y,
             enemy.position.z - camera_position.z,
             0.0f
         );
+
         float t_enemy = glm::dot(glm::vec3(to_enemy), glm::vec3(ray_direction));
-        
+
         if (t_enemy > 0.0f && t_enemy < max_ray_distance)
         {
             glm::vec4 closest_point = camera_position + ray_direction * t_enemy;
             glm::vec4 to_closest = closest_point - enemy.position;
             float distance_sq = to_closest.x * to_closest.x + to_closest.y * to_closest.y + to_closest.z * to_closest.z;
-            
+
             if (distance_sq <= entity_radius * entity_radius)
             {
-                printf("Raycast hit: ENEMY %zu at distance %.2f\n", i, t_enemy);
-                // Aqui você pode adicionar lógica adicional, como dano, etc.
+                // Aplica dano ao inimigo através do método TakeDamage
+                enemy.TakeDamage(player_damage_amount);
+
+                printf("Raycast hit: ENEMY %zu at distance %.2f - Health: %.1f/%.1f\n",
+                       i, t_enemy, enemy.health, enemy.max_health);
+
+                // Se o inimigo morreu
+                if (enemy.IsDead())
+                {
+                    printf("ENEMY %zu DEFEATED!\n", i);
+                }
+
                 return;
             }
         }

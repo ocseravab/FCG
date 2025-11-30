@@ -120,26 +120,41 @@ void main()
         V = texcoords.y;
     }
 
-    // Tratamento especial para linhas de direção e crosshair
-    if ( object_id == 5 ) // DIRECTION_LINE_PLAYER - linha verde para player
+    // Tratamento especial para linhas de direção, crosshair e barras de vida
+    if ( object_id == 3 ) // DIRECTION_LINE_PLAYER - linha verde para player
     {
         // Cor verde para indicadores de direção do player
         color.rgb = vec3(0.0, 1.0, 0.0);
     }
-    else if ( object_id == 6 ) // CROSSHAIR - verde
+    else if ( object_id == 4 ) // CROSSHAIR - verde
     {
         // Cor verde para crosshair
         color.rgb = vec3(0.0, 1.0, 0.0);
     }
-    else if ( object_id == 7 ) // CROSSHAIR_OUTLINE - contorno escuro
+    else if ( object_id == 5 ) // DIRECTION_LINE_ENEMY - linha vermelha para inimigos
+    {
+        // Cor vermelha para indicadores de direção dos inimigos
+        color.rgb = vec3(1.0, 0.0, 0.0);
+    }
+    else if ( object_id == 6 ) // CROSSHAIR_OUTLINE - contorno escuro
     {
         // Cor escura para contorno do crosshair
         color.rgb = vec3(0.0, 0.0, 0.0);
     }
-    else if ( object_id == 8 ) // DIRECTION_LINE_ENEMY - linha vermelha para inimigos
+    else if ( object_id == 7 ) // HEALTH_BAR_OUTLINE - contorno escuro da barra de vida
     {
-        // Cor vermelha para indicadores de direção dos inimigos
-        color.rgb = vec3(1.0, 0.0, 0.0);
+        // Cor escura para contorno da barra de vida
+        color.rgb = vec3(0.0, 0.0, 0.0);
+    }
+    else if ( object_id == 8 ) // HEALTH_BAR_BACKGROUND - fundo cinza (HP faltando)
+    {
+        // Cor cinza para HP faltando
+        color.rgb = vec3(0.5, 0.5, 0.5);
+    }
+    else if ( object_id == 9 ) // HEALTH_BAR_FILL - barra verde (HP atual)
+    {
+        // Cor verde para HP atual
+        color.rgb = vec3(0.0, 1.0, 0.0);
     }
     else if (object_id == PLAYER)
     {
