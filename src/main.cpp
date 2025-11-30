@@ -108,6 +108,7 @@ void DrawVirtualObject(const char* object_name); // Desenha um objeto armazenado
 void DrawDirectionIndicator(glm::vec4 position, glm::vec4 forward, float length, glm::mat4 view, glm::mat4 projection, bool is_player = false); // Desenha indicador de direção
 void DrawCrosshair(GLFWwindow* window); // Desenha crosshair no centro da tela
 void DrawHealthBar(GLFWwindow* window, glm::vec4 world_position, float health, float max_health, glm::mat4 view, glm::mat4 projection); // Desenha barra de vida acima do inimigo
+void DrawHUD(GLFWwindow* window); // Desenha HUD com HP e munição do jogador
 void CameraRaycast(glm::vec4 camera_position, glm::vec4 ray_direction); // Realiza raycast e verifica interseções
 int SpawnWave(const std::vector<glm::vec4>& spawn_positions); // Spawna uma wave de monstros nas posições especificadas, retorna o ID da wave
 bool IsWaveComplete(int wave_id); // Verifica se todos os monstros de uma wave estão mortos
@@ -194,6 +195,15 @@ struct Player
     // Status do jogador
     float health;                // Vida do jogador (0.0 a 100.0)
     float max_health;            // Vida máxima
+    
+    // Sistema de tiro
+    int magazine_ammo;           // Munição atual no carregador
+    int magazine_size;           // Tamanho do carregador (6 balas)
+    float shoot_cooldown;        // Tempo restante do cooldown de tiro (em segundos)
+    float shoot_cooldown_time;   // Tempo total do cooldown de tiro (em segundos)
+    float reload_time;           // Tempo restante do reload (em segundos)
+    float reload_time_total;     // Tempo total do reload (em segundos)
+    bool is_reloading;           // Se está recarregando
 
     // Câmera em terceira pessoa
     float camera_distance;       // Distância da câmera ao jogador
@@ -216,6 +226,14 @@ struct Player
         , moving_left(false)
         , moving_right(false)
         , max_health(100.0f)
+        , health(100.0f)  // Initialize with literal value since max_health isn't initialized yet
+        , magazine_size(6)
+        , magazine_ammo(6)  // Initialize with literal value since magazine_size isn't initialized yet
+        , shoot_cooldown(0.0f)
+        , shoot_cooldown_time(0.5f)  // 0.5 segundos de cooldown entre tiros
+        , reload_time(0.0f)
+        , reload_time_total(2.0f)     // 2 segundos para recarregar
+        , is_reloading(false)
         , camera_distance(3.0f)
         , camera_height(0.5f)
         , camera_angle_horizontal(0.0f)
@@ -795,6 +813,27 @@ int main(int argc, char* argv[])
 
         // Atualizamos os vetores de direção do jogador
         g_Player.UpdateDirectionVectors();
+        
+        // Atualizamos o cooldown de tiro
+        if (g_Player.shoot_cooldown > 0.0f)
+        {
+            g_Player.shoot_cooldown -= delta_time;
+            if (g_Player.shoot_cooldown < 0.0f)
+                g_Player.shoot_cooldown = 0.0f;
+        }
+        
+        // Atualizamos o tempo de reload
+        if (g_Player.is_reloading)
+        {
+            g_Player.reload_time -= delta_time;
+            if (g_Player.reload_time <= 0.0f)
+            {
+                // Recarregamento completo - recarrega o carregador
+                g_Player.magazine_ammo = g_Player.magazine_size;
+                g_Player.is_reloading = false;
+                g_Player.reload_time = 0.0f;
+            }
+        }
 
         // Atualizamos todos os inimigos (apenas os vivos)
         for (auto& enemy : g_Enemies)
@@ -922,6 +961,9 @@ int main(int argc, char* argv[])
 
         // Desenhamos o crosshair no centro da tela
         DrawCrosshair(window);
+        
+        // Desenhamos o HUD com HP e munição
+        DrawHUD(window);
 
         // Imprimimos na informação sobre a matriz de projeção sendo utilizada.
         TextRendering_ShowProjection(window);
@@ -1583,21 +1625,39 @@ void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
         glfwGetCursorPos(window, &g_LastCursorPosX, &g_LastCursorPosY);
         g_LeftMouseButtonPressed = true;
 
-        // Realiza raycast do centro da tela
-        glm::vec4 camera_position = g_Player.GetThirdPersonCameraPosition();
-        glm::vec4 camera_lookat = g_Player.GetCameraLookAt();
-        glm::vec4 camera_view_vector = camera_lookat - camera_position;
-
-        // Normaliza o vetor de direção da câmera
-        float view_length = sqrt(camera_view_vector.x * camera_view_vector.x +
-                                 camera_view_vector.y * camera_view_vector.y +
-                                 camera_view_vector.z * camera_view_vector.z);
-        if (view_length > 0.001f)
+        // Debug: Print all player relevant fields
+        // printf("Player Magazine Ammo: %d\n", g_Player.magazine_ammo);
+        // printf("Player Shoot Cooldown: %f\n", g_Player.shoot_cooldown);
+        // printf("Player Is Reloading: %d\n", g_Player.is_reloading);
+        // printf("Player Reload Time: %f\n", g_Player.reload_time);
+        // printf("Player Reload Time Total: %f\n", g_Player.reload_time_total);
+        // printf("Player Health: %f\n", g_Player.health);
+        // printf("Player Max Health: %f\n", g_Player.max_health);
+        // printf("Player Magazine Size: %d\n", g_Player.magazine_size);
+        
+        // Verifica se pode atirar (tem munição no carregador, não está em cooldown e não está recarregando)
+        if (g_Player.magazine_ammo > 0 && g_Player.shoot_cooldown <= 0.0f && !g_Player.is_reloading)
         {
-            camera_view_vector.x /= view_length;
-            camera_view_vector.y /= view_length;
-            camera_view_vector.z /= view_length;
-            CameraRaycast(camera_position, camera_view_vector);
+            // Realiza raycast do centro da tela
+            glm::vec4 camera_position = g_Player.GetThirdPersonCameraPosition();
+            glm::vec4 camera_lookat = g_Player.GetCameraLookAt();
+            glm::vec4 camera_view_vector = camera_lookat - camera_position;
+
+            // Normaliza o vetor de direção da câmera
+            float view_length = sqrt(camera_view_vector.x * camera_view_vector.x +
+                                     camera_view_vector.y * camera_view_vector.y +
+                                     camera_view_vector.z * camera_view_vector.z);
+            if (view_length > 0.001f)
+            {
+                camera_view_vector.x /= view_length;
+                camera_view_vector.y /= view_length;
+                camera_view_vector.z /= view_length;
+                CameraRaycast(camera_position, camera_view_vector);
+                
+                // Consome munição do carregador e inicia cooldown
+                g_Player.magazine_ammo--;
+                g_Player.shoot_cooldown = g_Player.shoot_cooldown_time;
+            }
         }
     }
     if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
@@ -1823,9 +1883,12 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
     // Se o usuário apertar a tecla R, recarregamos os shaders dos arquivos "shader_fragment.glsl" e "shader_vertex.glsl".
     if (key == GLFW_KEY_R && action == GLFW_PRESS)
     {
-        LoadShadersFromFiles();
-        fprintf(stdout,"Shaders recarregados!\n");
-        fflush(stdout);
+        // Recarrega o carregador se não estiver recarregando e o carregador não estiver cheio
+        if (!g_Player.is_reloading && g_Player.magazine_ammo < g_Player.magazine_size)
+        {
+            g_Player.is_reloading = true;
+            g_Player.reload_time = g_Player.reload_time_total;
+        }
     }
 }
 
@@ -2443,6 +2506,78 @@ void DrawHealthBar(GLFWwindow* window, glm::vec4 world_position, float health, f
     glLineWidth(1.0f);
 }
 
+// Função que desenha o HUD com HP e munição do jogador
+void DrawHUD(GLFWwindow* window)
+{
+    // Configurações de texto
+    float text_scale = 1.0f;
+    float line_height = TextRendering_LineHeight(window);
+    float char_width = TextRendering_CharWidth(window);
+    
+    // Posição do HUD (canto inferior esquerdo em coordenadas NDC)
+    // NDC: x de -1.0 (esquerda) a 1.0 (direita), y de -1.0 (baixo) a 1.0 (cima)
+    // Usa uma margem segura para garantir que o texto fique visível
+    float hud_x = -1.0f + 10.0f * char_width;  // 10 caracteres da esquerda
+    float hud_y_start = -1.0f + 5.0f * line_height;  // Posição inicial mais alta para caber tudo
+    
+    // Calcula número da wave atual (maior ID de wave + 1, ou total de waves)
+    int current_wave = 0;
+    if (!g_Waves.empty())
+    {
+        // Encontra o maior ID de wave
+        int max_wave_id = -1;
+        for (const auto& wave : g_Waves)
+        {
+            if (wave.wave_id > max_wave_id)
+                max_wave_id = wave.wave_id;
+        }
+        current_wave = max_wave_id + 1; // Wave number is 1-indexed for display
+    }
+    
+    // Conta inimigos vivos (não mortos)
+    int enemies_left = 0;
+    for (const auto& enemy : g_Enemies)
+    {
+        if (!enemy.IsDead())
+        {
+            enemies_left++;
+        }
+    }
+    
+    // Desenha HP (garante que está usando os dados corretos do jogador)
+    float current_y = hud_y_start;
+    char hp_text[64];
+    snprintf(hp_text, 64, "HP: %.0f/%.0f", g_Player.health, g_Player.max_health);
+    TextRendering_PrintString(window, hp_text, hud_x, current_y, text_scale);
+    
+    // Desenha munição do carregador (garante que está usando os dados corretos do jogador)
+    current_y -= 1.5f * line_height;
+    char ammo_text[64];
+    snprintf(ammo_text, 64, "Ammo: %d/%d", g_Player.magazine_ammo, g_Player.magazine_size);
+    TextRendering_PrintString(window, ammo_text, hud_x, current_y, text_scale);
+    
+    // Desenha número da wave
+    current_y -= 1.5f * line_height;
+    char wave_text[64];
+    snprintf(wave_text, 64, "Wave: %d", current_wave);
+    TextRendering_PrintString(window, wave_text, hud_x, current_y, text_scale);
+    
+    // Desenha inimigos restantes
+    current_y -= 1.5f * line_height;
+    char enemies_text[64];
+    snprintf(enemies_text, 64, "Enemies: %d", enemies_left);
+    TextRendering_PrintString(window, enemies_text, hud_x, current_y, text_scale);
+    
+    // Desenha status de reload se estiver recarregando
+    if (g_Player.is_reloading)
+    {
+        current_y -= 1.5f * line_height;
+        char reload_text[64];
+        snprintf(reload_text, 64, "Reloading: %.1fs", g_Player.reload_time);
+        TextRendering_PrintString(window, reload_text, hud_x, current_y, text_scale * 0.9f);
+    }
+}
+
 // Função que realiza raycast e verifica interseções com entidades
 void CameraRaycast(glm::vec4 camera_position, glm::vec4 ray_direction)
 {
@@ -2474,7 +2609,7 @@ void CameraRaycast(glm::vec4 camera_position, glm::vec4 ray_direction)
     }
 
     // Verifica interseção com inimigos
-    const float player_damage_amount = 10.0f; // Quantidade de dano por tiro
+    const float player_damage_amount = 34.0f; // Quantidade de dano por tiro
 
     for (size_t i = 0; i < g_Enemies.size(); ++i)
     {
