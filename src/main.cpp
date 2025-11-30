@@ -110,6 +110,9 @@ void DrawCrosshair(GLFWwindow* window); // Desenha crosshair no centro da tela
 void DrawHealthBar(GLFWwindow* window, glm::vec4 world_position, float health, float max_health, glm::mat4 view, glm::mat4 projection); // Desenha barra de vida acima do inimigo
 void DrawHUD(GLFWwindow* window); // Desenha HUD com HP e munição do jogador
 void CameraRaycast(glm::vec4 camera_position, glm::vec4 ray_direction); // Realiza raycast e verifica interseções
+void PlayerRaycast(); // Realiza raycast a partir do centro do jogador na direção que ele está olhando
+void EnemyToPlayerRaycast(size_t enemy_index); // Realiza raycast de um inimigo específico em direção ao jogador
+void DrawRaycastLine(glm::vec4 start, glm::vec4 end, glm::mat4 view, glm::mat4 projection); // Desenha linha amarela para visualizar raycast
 int SpawnWave(const std::vector<glm::vec4>& spawn_positions); // Spawna uma wave de monstros nas posições especificadas, retorna o ID da wave
 bool IsWaveComplete(int wave_id); // Verifica se todos os monstros de uma wave estão mortos
 void UpdateWaves(); // Atualiza o status de todas as waves
@@ -195,7 +198,7 @@ struct Player
     // Status do jogador
     float health;                // Vida do jogador (0.0 a 100.0)
     float max_health;            // Vida máxima
-    
+
     // Sistema de tiro
     int magazine_ammo;           // Munição atual no carregador
     int magazine_size;           // Tamanho do carregador (6 balas)
@@ -469,6 +472,19 @@ struct Enemy
     int wave_id;
 };
 
+// Estrutura que representa uma caixa ou barril no mundo
+struct Box
+{
+    glm::vec4 position;    // Posição da caixa no mundo (x, y, z, 1.0)
+    float rotation_y;      // Rotação em torno do eixo Y (em radianos)
+    glm::vec3 scale;       // Escala da caixa (largura, altura, profundidade)
+
+    Box(glm::vec4 pos, float rot_y = 0.0f, glm::vec3 scl = glm::vec3(0.5f, 0.5f, 0.5f))
+        : position(pos), rotation_y(rot_y), scale(scl)
+    {
+    }
+};
+
 // Estrutura que representa uma wave de monstros
 struct Wave
 {
@@ -547,6 +563,16 @@ std::vector<Enemy> g_Enemies;
 // Lista de waves de monstros
 std::vector<Wave> g_Waves;
 int g_NextWaveID = 0; // Contador para gerar IDs únicos de waves
+
+// Lista de caixas/barrils no mundo
+std::vector<Box> g_Boxes;
+
+// Variáveis para visualização de raycast de inimigo
+bool g_DrawEnemyRaycast = false;
+glm::vec4 g_EnemyRaycastStart;
+glm::vec4 g_EnemyRaycastEnd;
+float g_EnemyRaycastTime = 0.0f; // Tempo quando o raycast foi realizado
+const float g_EnemyRaycastDuration = 3.0f; // Duração em segundos que a linha fica visível
 
 // Variável que controla o tipo de projeção utilizada: perspectiva ou ortográfica.
 bool g_UsePerspectiveProjection = true;
@@ -748,6 +774,35 @@ int main(int argc, char* argv[])
     ComputeNormals(&enemymodel);
     BuildTrianglesAndAddToVirtualScene(&enemymodel);
 
+    // Inicializamos algumas caixas/barrils no mundo
+    const float box_y = ground_y + 0.25f; // Caixas ficam meio acima do chão
+
+    // Posições dos inimigos (para evitar colisão)
+    // Inimigos spawnam a 5.0f de distância do jogador nas 4 direções cardinais
+    // Vamos posicionar caixas em outras áreas, evitando essas posições
+    float player_x = g_Player.position.x;
+    float player_z = g_Player.position.z;
+    float spawn_distance = 5.0f;
+    float min_distance_from_spawn = 2.0f; // Distância mínima das posições de spawn dos inimigos
+
+    // Adiciona várias caixas em posições que não colidem com spawns de inimigos
+    // Posições diagonais e mais distantes
+    g_Boxes.push_back(Box(glm::vec4(player_x + 7.0f, box_y, player_z + 7.0f, 1.0f), 0.0f, glm::vec3(0.4f, 0.4f, 0.4f)));
+    g_Boxes.push_back(Box(glm::vec4(player_x - 7.0f, box_y, player_z + 7.0f, 1.0f), 0.5f, glm::vec3(0.5f, 0.5f, 0.5f)));
+    g_Boxes.push_back(Box(glm::vec4(player_x + 7.0f, box_y, player_z - 7.0f, 1.0f), 1.0f, glm::vec3(0.3f, 0.6f, 0.3f))); // Barril mais alto
+    g_Boxes.push_back(Box(glm::vec4(player_x - 7.0f, box_y, player_z - 7.0f, 1.0f), 1.5f, glm::vec3(0.4f, 0.4f, 0.4f)));
+
+    // Posições laterais (evitando as 4 direções cardinais onde inimigos spawnam)
+    g_Boxes.push_back(Box(glm::vec4(player_x + 8.0f, box_y, player_z + 2.0f, 1.0f), 0.0f, glm::vec3(0.5f, 0.5f, 0.5f)));
+    g_Boxes.push_back(Box(glm::vec4(player_x - 8.0f, box_y, player_z - 2.0f, 1.0f), 0.0f, glm::vec3(0.4f, 0.4f, 0.4f)));
+    g_Boxes.push_back(Box(glm::vec4(player_x + 2.0f, box_y, player_z + 8.0f, 1.0f), 0.0f, glm::vec3(0.3f, 0.6f, 0.3f))); // Barril mais alto
+    g_Boxes.push_back(Box(glm::vec4(player_x - 2.0f, box_y, player_z - 8.0f, 1.0f), 0.0f, glm::vec3(0.5f, 0.5f, 0.5f)));
+
+    // Mais algumas caixas em posições variadas
+    g_Boxes.push_back(Box(glm::vec4(player_x + 6.0f, box_y, player_z + 3.0f, 1.0f), 0.8f, glm::vec3(0.4f, 0.4f, 0.4f)));
+    g_Boxes.push_back(Box(glm::vec4(player_x - 6.0f, box_y, player_z - 3.0f, 1.0f), 1.2f, glm::vec3(0.3f, 0.6f, 0.3f))); // Barril mais alto
+    g_Boxes.push_back(Box(glm::vec4(player_x + 3.0f, box_y, player_z + 6.0f, 1.0f), 0.3f, glm::vec3(0.4f, 0.4f, 0.4f)));
+    g_Boxes.push_back(Box(glm::vec4(player_x - 3.0f, box_y, player_z - 6.0f, 1.0f), 0.7f, glm::vec3(0.5f, 0.5f, 0.5f)));
 
     // Inicializamos a câmera para começar olhando para o jogador
     g_Player.camera_angle_horizontal = 0.0f;
@@ -755,12 +810,18 @@ int main(int argc, char* argv[])
 
     // Spawna uma wave de 4 inimigos ao redor do jogador
     glm::vec4 player_pos = g_Player.position;
-    float spawn_distance = 5.0f; // Distância do jogador
+    
+    // Calcula a posição Y correta para os inimigos
+    // O cubo vai de -1 a +1, e é escalado por 0.3, então vai de -0.3 a +0.3
+    // Para que o fundo do inimigo fique no chão, precisamos posicionar em ground_y + 0.3
+    const float enemy_scale = 0.3f;
+    const float enemy_y = ground_y + enemy_scale; // Posiciona o inimigo para que o fundo fique no chão
+
     std::vector<glm::vec4> wave_spawn_positions = {
-        glm::vec4(player_pos.x + spawn_distance, player_pos.y, player_pos.z, 1.0f),           // Direita
-        glm::vec4(player_pos.x - spawn_distance, player_pos.y, player_pos.z, 1.0f),           // Esquerda
-        glm::vec4(player_pos.x, player_pos.y, player_pos.z + spawn_distance, 1.0f),           // Frente
-        glm::vec4(player_pos.x, player_pos.y, player_pos.z - spawn_distance, 1.0f)            // Atrás
+        glm::vec4(player_pos.x + spawn_distance, enemy_y, player_pos.z, 1.0f),           // Direita
+        glm::vec4(player_pos.x - spawn_distance, enemy_y, player_pos.z, 1.0f),           // Esquerda
+        glm::vec4(player_pos.x, enemy_y, player_pos.z + spawn_distance, 1.0f),           // Frente
+        glm::vec4(player_pos.x, enemy_y, player_pos.z - spawn_distance, 1.0f)            // Atrás
     };
     SpawnWave(wave_spawn_positions);
 
@@ -813,7 +874,7 @@ int main(int argc, char* argv[])
 
         // Atualizamos os vetores de direção do jogador
         g_Player.UpdateDirectionVectors();
-        
+
         // Atualizamos o cooldown de tiro
         if (g_Player.shoot_cooldown > 0.0f)
         {
@@ -821,7 +882,7 @@ int main(int argc, char* argv[])
             if (g_Player.shoot_cooldown < 0.0f)
                 g_Player.shoot_cooldown = 0.0f;
         }
-        
+
         // Atualizamos o tempo de reload
         if (g_Player.is_reloading)
         {
@@ -888,12 +949,24 @@ int main(int argc, char* argv[])
         #define PLANE  0
         #define PLAYER 1
         #define ENEMY  2
+        #define BOX    10
 
         // Desenhamos o plano do chão
         model = Matrix_Translate(0.0f,-1.1f,0.0f);
         glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, PLANE);
         DrawVirtualObject("the_plane");
+
+        // Desenhamos as caixas/barrils
+        for (const auto& box : g_Boxes)
+        {
+            model = Matrix_Translate(box.position.x, box.position.y, box.position.z);
+            model = model * Matrix_Rotate_Y(box.rotation_y);
+            model = model * Matrix_Scale(box.scale.x, box.scale.y, box.scale.z);
+            glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
+            glUniform1i(g_object_id_uniform, BOX); // Usa shader específico para caixas (cor marrom)
+            DrawVirtualObject("the_cube");
+        }
 
         // Desenhamos o jogador
         // Primeiro transladamos para a posição do jogador, depois rotacionamos em torno do eixo Y
@@ -931,7 +1004,7 @@ int main(int argc, char* argv[])
                 scale_y = 0.3f; // Inimigo em pé é normal
             }
             model = Matrix_Translate(enemy.position.x, enemy.position.y, enemy.position.z);
-            model = model * Matrix_Rotate_Y(enemy.rotation_y);
+            model = model * Matrix_Rotate_Y(-enemy.rotation_y);
             // Escala diferente para Y quando agachado
             model = model * Matrix_Scale(0.3f, scale_y, 0.3f);
             glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
@@ -951,6 +1024,23 @@ int main(int argc, char* argv[])
             DrawDirectionIndicator(enemy.position, enemy.forward_vector, 0.8f, view, projection, false);
         }
 
+        // Desenha linha amarela do raycast de inimigo se ativada e ainda dentro do tempo
+        if (g_DrawEnemyRaycast)
+        {
+            float current_time = (float)glfwGetTime();
+            float elapsed_time = current_time - g_EnemyRaycastTime;
+            
+            if (elapsed_time < g_EnemyRaycastDuration)
+            {
+                DrawRaycastLine(g_EnemyRaycastStart, g_EnemyRaycastEnd, view, projection);
+            }
+            else
+            {
+                // Desativa o desenho após 3 segundos
+                g_DrawEnemyRaycast = false;
+            }
+        }
+
         // Desenhamos as barras de vida dos inimigos (apenas para inimigos vivos)
         for (const auto& enemy : g_Enemies)
         {
@@ -961,7 +1051,7 @@ int main(int argc, char* argv[])
 
         // Desenhamos o crosshair no centro da tela
         DrawCrosshair(window);
-        
+
         // Desenhamos o HUD com HP e munição
         DrawHUD(window);
 
@@ -1634,7 +1724,7 @@ void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
         // printf("Player Health: %f\n", g_Player.health);
         // printf("Player Max Health: %f\n", g_Player.max_health);
         // printf("Player Magazine Size: %d\n", g_Player.magazine_size);
-        
+
         // Verifica se pode atirar (tem munição no carregador, não está em cooldown e não está recarregando)
         if (g_Player.magazine_ammo > 0 && g_Player.shoot_cooldown <= 0.0f && !g_Player.is_reloading)
         {
@@ -1653,7 +1743,7 @@ void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
                 camera_view_vector.y /= view_length;
                 camera_view_vector.z /= view_length;
                 CameraRaycast(camera_position, camera_view_vector);
-                
+
                 // Consome munição do carregador e inicia cooldown
                 g_Player.magazine_ammo--;
                 g_Player.shoot_cooldown = g_Player.shoot_cooldown_time;
@@ -1818,6 +1908,34 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
     if (key == GLFW_KEY_SPACE && action == GLFW_PRESS)
     {
         // PASS
+    }
+
+    // Test keys for raycast functions
+    if (key == GLFW_KEY_P && action == GLFW_PRESS)
+    {
+        // P key: Test PlayerRaycast (from player center)
+        PlayerRaycast();
+    }
+
+    if (key == GLFW_KEY_E && action == GLFW_PRESS)
+    {
+        // E key: Test EnemyToPlayerRaycast (from first alive enemy to player)
+        if (!g_Enemies.empty())
+        {
+            // Find first alive enemy
+            for (size_t i = 0; i < g_Enemies.size(); ++i)
+            {
+                if (!g_Enemies[i].IsDead())
+                {
+                    EnemyToPlayerRaycast(i);
+                    break;
+                }
+            }
+        }
+        else
+        {
+            printf("No enemies available for EnemyToPlayerRaycast test\n");
+        }
     }
 
     // Controles WASD para movimento do jogador
@@ -2513,13 +2631,13 @@ void DrawHUD(GLFWwindow* window)
     float text_scale = 1.0f;
     float line_height = TextRendering_LineHeight(window);
     float char_width = TextRendering_CharWidth(window);
-    
+
     // Posição do HUD (canto inferior esquerdo em coordenadas NDC)
     // NDC: x de -1.0 (esquerda) a 1.0 (direita), y de -1.0 (baixo) a 1.0 (cima)
     // Usa uma margem segura para garantir que o texto fique visível
     float hud_x = -1.0f + 10.0f * char_width;  // 10 caracteres da esquerda
     float hud_y_start = -1.0f + 5.0f * line_height;  // Posição inicial mais alta para caber tudo
-    
+
     // Calcula número da wave atual (maior ID de wave + 1, ou total de waves)
     int current_wave = 0;
     if (!g_Waves.empty())
@@ -2533,7 +2651,7 @@ void DrawHUD(GLFWwindow* window)
         }
         current_wave = max_wave_id + 1; // Wave number is 1-indexed for display
     }
-    
+
     // Conta inimigos vivos (não mortos)
     int enemies_left = 0;
     for (const auto& enemy : g_Enemies)
@@ -2543,31 +2661,31 @@ void DrawHUD(GLFWwindow* window)
             enemies_left++;
         }
     }
-    
+
     // Desenha HP (garante que está usando os dados corretos do jogador)
     float current_y = hud_y_start;
     char hp_text[64];
     snprintf(hp_text, 64, "HP: %.0f/%.0f", g_Player.health, g_Player.max_health);
     TextRendering_PrintString(window, hp_text, hud_x, current_y, text_scale);
-    
+
     // Desenha munição do carregador (garante que está usando os dados corretos do jogador)
     current_y -= 1.5f * line_height;
     char ammo_text[64];
     snprintf(ammo_text, 64, "Ammo: %d/%d", g_Player.magazine_ammo, g_Player.magazine_size);
     TextRendering_PrintString(window, ammo_text, hud_x, current_y, text_scale);
-    
+
     // Desenha número da wave
     current_y -= 1.5f * line_height;
     char wave_text[64];
     snprintf(wave_text, 64, "Wave: %d", current_wave);
     TextRendering_PrintString(window, wave_text, hud_x, current_y, text_scale);
-    
+
     // Desenha inimigos restantes
     current_y -= 1.5f * line_height;
     char enemies_text[64];
     snprintf(enemies_text, 64, "Enemies: %d", enemies_left);
     TextRendering_PrintString(window, enemies_text, hud_x, current_y, text_scale);
-    
+
     // Desenha status de reload se estiver recarregando
     if (g_Player.is_reloading)
     {
@@ -2578,13 +2696,92 @@ void DrawHUD(GLFWwindow* window)
     }
 }
 
+// Função auxiliar para verificar interseção de raio com AABB (Axis-Aligned Bounding Box)
+// Retorna true se houver interseção e armazena a distância em t
+bool RayAABBIntersection(const glm::vec4& ray_origin, const glm::vec4& ray_dir,
+                         const glm::vec3& box_min, const glm::vec3& box_max, float& t)
+{
+    // Algoritmo de interseção raio-AABB (Slab method)
+    float tmin = 0.0f;
+    float tmax = std::numeric_limits<float>::max();
+
+    for (int i = 0; i < 3; ++i)
+    {
+        // Evita divisão por zero quando o raio é paralelo ao eixo
+        if (fabs(ray_dir[i]) < 1e-6f)
+        {
+            // Raio paralelo ao eixo - verifica se está dentro do AABB neste eixo
+            if (ray_origin[i] < box_min[i] || ray_origin[i] > box_max[i])
+                return false;
+            continue;
+        }
+
+        float invD = 1.0f / ray_dir[i];
+        float t0 = (box_min[i] - ray_origin[i]) * invD;
+        float t1 = (box_max[i] - ray_origin[i]) * invD;
+
+        if (invD < 0.0f)
+        {
+            float temp = t0;
+            t0 = t1;
+            t1 = temp;
+        }
+
+        tmin = t0 > tmin ? t0 : tmin;
+        tmax = t1 < tmax ? t1 : tmax;
+
+        if (tmax < tmin)
+            return false;
+    }
+
+    t = tmin;
+    return tmin >= 0.0f;
+}
+
 // Função que realiza raycast e verifica interseções com entidades
 void CameraRaycast(glm::vec4 camera_position, glm::vec4 ray_direction)
 {
     const float max_ray_distance = 100.0f;
     const float entity_radius = 0.3f; // Raio aproximado das entidades (baseado na escala)
 
+    // Verifica interseção com caixas (obstáculos) e encontra a mais próxima
+    float closest_box_t = max_ray_distance;
+    bool hit_box = false;
+
+    for (const auto& box : g_Boxes)
+    {
+        // Calcula o AABB da caixa no espaço do mundo
+        // O cubo base tem coordenadas de -1 a 1, então precisamos escalar e transladar
+        // Como a rotação é apenas em torno do eixo Y, o AABB em Y não muda,
+        // mas em X e Z precisamos considerar a diagonal máxima após rotação
+        float max_horizontal_extent = sqrt(box.scale.x * box.scale.x + box.scale.z * box.scale.z);
+        
+        glm::vec3 box_min = glm::vec3(
+            box.position.x - max_horizontal_extent,
+            box.position.y - box.scale.y,
+            box.position.z - max_horizontal_extent
+        );
+        glm::vec3 box_max = glm::vec3(
+            box.position.x + max_horizontal_extent,
+            box.position.y + box.scale.y,
+            box.position.z + max_horizontal_extent
+        );
+
+        float t_box = 0.0f;
+        if (RayAABBIntersection(camera_position, ray_direction, box_min, box_max, t_box))
+        {
+            if (t_box > 0.0f && t_box < closest_box_t)
+            {
+                closest_box_t = t_box;
+                hit_box = true;
+            }
+        }
+    }
+
     // Verifica interseção com o jogador
+    float closest_player_t = max_ray_distance;
+    bool hit_player = false;
+    
     glm::vec4 to_player = glm::vec4(
         g_Player.position.x - camera_position.x,
         g_Player.position.y - camera_position.y,
@@ -2602,14 +2799,16 @@ void CameraRaycast(glm::vec4 camera_position, glm::vec4 ray_direction)
 
         if (distance_sq <= entity_radius * entity_radius)
         {
-            printf("Raycast hit: PLAYER at distance %.2f\n", t_player);
-            // Aqui você pode adicionar lógica adicional, como dano, etc.
-            return;
+            closest_player_t = t_player;
+            hit_player = true;
         }
     }
 
     // Verifica interseção com inimigos
     const float player_damage_amount = 34.0f; // Quantidade de dano por tiro
+    float closest_enemy_t = max_ray_distance;
+    size_t closest_enemy_index = SIZE_MAX;
+    bool hit_enemy = false;
 
     for (size_t i = 0; i < g_Enemies.size(); ++i)
     {
@@ -2636,24 +2835,287 @@ void CameraRaycast(glm::vec4 camera_position, glm::vec4 ray_direction)
 
             if (distance_sq <= entity_radius * entity_radius)
             {
-                // Aplica dano ao inimigo através do método TakeDamage
-                enemy.TakeDamage(player_damage_amount);
-
-                printf("Raycast hit: ENEMY %zu at distance %.2f - Health: %.1f/%.1f\n",
-                       i, t_enemy, enemy.health, enemy.max_health);
-
-                // Se o inimigo morreu
-                if (enemy.IsDead())
+                if (t_enemy < closest_enemy_t)
                 {
-                    printf("ENEMY %zu DEFEATED!\n", i);
+                    closest_enemy_t = t_enemy;
+                    closest_enemy_index = i;
+                    hit_enemy = true;
                 }
-
-                return;
             }
         }
     }
 
+    // Verifica qual foi o hit mais próximo: caixa, jogador ou inimigo
+    // A caixa bloqueia se estiver na frente de qualquer outro objeto
+    if (hit_box)
+    {
+        // Verifica se a caixa está na frente do jogador
+        if (hit_player && closest_box_t < closest_player_t)
+        {
+            printf("Raycast hit: BOX at distance %.2f (blocking player)\n", closest_box_t);
+            return;
+        }
+        
+        // Verifica se a caixa está na frente do inimigo
+        if (hit_enemy && closest_box_t < closest_enemy_t)
+        {
+            printf("Raycast hit: BOX at distance %.2f (blocking enemy)\n", closest_box_t);
+            return;
+        }
+        
+        // Se não há jogador nem inimigo, ou se a caixa não está na frente, ainda pode ser o hit mais próximo
+        if (!hit_player && !hit_enemy)
+        {
+            printf("Raycast hit: BOX at distance %.2f\n", closest_box_t);
+            return;
+        }
+    }
+
+    // Se o jogador foi atingido (e não há caixa na frente)
+    if (hit_player && (!hit_box || closest_player_t < closest_box_t))
+    {
+        printf("Raycast hit: PLAYER at distance %.2f\n", closest_player_t);
+        // Aqui você pode adicionar lógica adicional, como dano, etc.
+        return;
+    }
+
+    // Se um inimigo foi atingido (e não há caixa na frente)
+    if (hit_enemy && closest_enemy_index != SIZE_MAX && (!hit_box || closest_enemy_t < closest_box_t))
+    {
+        auto& enemy = g_Enemies[closest_enemy_index];
+        
+        // Aplica dano ao inimigo através do método TakeDamage
+        enemy.TakeDamage(player_damage_amount);
+
+        printf("Raycast hit: ENEMY %zu at distance %.2f - Health: %.1f/%.1f\n",
+               closest_enemy_index, closest_enemy_t, enemy.health, enemy.max_health);
+
+        // Se o inimigo morreu
+        if (enemy.IsDead())
+        {
+            printf("ENEMY %zu DEFEATED!\n", closest_enemy_index);
+        }
+
+        return;
+    }
+
     printf("Raycast: No hit\n");
+}
+
+// Realiza raycast a partir do centro do jogador na direção que ele está olhando
+void PlayerRaycast()
+{
+    // Posição do centro do jogador (usando a posição do jogador)
+    glm::vec4 ray_origin = g_Player.position;
+    
+    // Direção é o vetor forward do jogador (direção que ele está olhando)
+    glm::vec4 ray_direction = g_Player.forward_vector;
+    
+    // Normaliza o vetor de direção
+    float dir_length = sqrt(ray_direction.x * ray_direction.x + 
+                           ray_direction.y * ray_direction.y + 
+                           ray_direction.z * ray_direction.z);
+    if (dir_length > 0.001f)
+    {
+        ray_direction.x /= dir_length;
+        ray_direction.y /= dir_length;
+        ray_direction.z /= dir_length;
+    }
+    
+    printf("=== PlayerRaycast: From player center (%.2f, %.2f, %.2f) in direction (%.2f, %.2f, %.2f) ===\n",
+           ray_origin.x, ray_origin.y, ray_origin.z,
+           ray_direction.x, ray_direction.y, ray_direction.z);
+    
+    // Usa a mesma lógica do CameraRaycast mas com origem e direção diferentes
+    CameraRaycast(ray_origin, ray_direction);
+}
+
+// Função auxiliar para desenhar linha de raycast (amarela)
+void DrawRaycastLine(glm::vec4 start, glm::vec4 end, glm::mat4 view, glm::mat4 projection)
+{
+    // Cria VAO e VBO se ainda não existirem
+    if (g_LineVAO == 0)
+    {
+        glGenVertexArrays(1, &g_LineVAO);
+        glGenBuffers(1, &g_LineVBO);
+    }
+
+    // Define os vértices da linha
+    float line_vertices[] = {
+        start.x, start.y, start.z, 1.0f,
+        end.x, end.y, end.z, 1.0f
+    };
+
+    // Configura o VAO
+    glBindVertexArray(g_LineVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, g_LineVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(line_vertices), line_vertices, GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(0);
+
+    // Usa o shader principal
+    glUseProgram(g_GpuProgramID);
+
+    // Matriz de modelagem identidade (linha já está em coordenadas do mundo)
+    glm::mat4 model = Matrix_Identity();
+    glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
+    glUniformMatrix4fv(g_view_uniform, 1, GL_FALSE, glm::value_ptr(view));
+    glUniformMatrix4fv(g_projection_uniform, 1, GL_FALSE, glm::value_ptr(projection));
+
+    // Define cor amarela para raycast de inimigo
+    #define ENEMY_RAYCAST_LINE 11
+    glUniform1i(g_object_id_uniform, ENEMY_RAYCAST_LINE);
+
+    // Desabilita culling para linhas
+    glDisable(GL_CULL_FACE);
+
+    // Desenha a linha
+    glLineWidth(3.0f);
+    glDrawArrays(GL_LINES, 0, 2);
+    glLineWidth(1.0f);
+
+    // Reabilita culling
+    glEnable(GL_CULL_FACE);
+
+    glBindVertexArray(0);
+}
+
+// Realiza raycast de um inimigo específico em direção ao jogador
+void EnemyToPlayerRaycast(size_t enemy_index)
+{
+    // Verifica se o índice é válido
+    if (enemy_index >= g_Enemies.size())
+    {
+        printf("EnemyToPlayerRaycast: Invalid enemy index %zu (total enemies: %zu)\n", 
+               enemy_index, g_Enemies.size());
+        return;
+    }
+    
+    auto& enemy = g_Enemies[enemy_index];
+    
+    // Verifica se o inimigo está morto
+    if (enemy.IsDead())
+    {
+        printf("EnemyToPlayerRaycast: Enemy %zu is dead\n", enemy_index);
+        return;
+    }
+    
+    // Posição do centro do inimigo
+    glm::vec4 ray_origin = enemy.position;
+    
+    // Direção do inimigo para o jogador
+    glm::vec4 ray_direction = glm::vec4(
+        g_Player.position.x - enemy.position.x,
+        g_Player.position.y - enemy.position.y,
+        g_Player.position.z - enemy.position.z,
+        0.0f
+    );
+    
+    // Normaliza o vetor de direção
+    float dir_length = sqrt(ray_direction.x * ray_direction.x + 
+                           ray_direction.y * ray_direction.y + 
+                           ray_direction.z * ray_direction.z);
+    if (dir_length > 0.001f)
+    {
+        ray_direction.x /= dir_length;
+        ray_direction.y /= dir_length;
+        ray_direction.z /= dir_length;
+    }
+    else
+    {
+        printf("EnemyToPlayerRaycast: Enemy %zu is at same position as player\n", enemy_index);
+        return;
+    }
+    
+    // Rotaciona o inimigo para enfrentar o jogador
+    // Usa atan2 para calcular o ângulo de rotação em torno do eixo Y
+    // Similar ao que é feito para o jogador, mas com sinal invertido para corrigir direção
+    enemy.rotation_y = atan2(ray_direction.x, -ray_direction.z);
+    enemy.UpdateDirectionVectors();
+    
+    printf("=== EnemyToPlayerRaycast: From enemy %zu (%.2f, %.2f, %.2f) to player (%.2f, %.2f, %.2f) ===\n",
+           enemy_index,
+           ray_origin.x, ray_origin.y, ray_origin.z,
+           g_Player.position.x, g_Player.position.y, g_Player.position.z);
+    
+    // Realiza o raycast e encontra o ponto de impacto
+    const float max_ray_distance = 100.0f;
+    glm::vec4 hit_point = ray_origin + ray_direction * max_ray_distance; // Default: max distance
+    
+    // Verifica interseção com caixas primeiro
+    float closest_box_t = max_ray_distance;
+    bool hit_box = false;
+    
+    for (const auto& box : g_Boxes)
+    {
+        float max_horizontal_extent = sqrt(box.scale.x * box.scale.x + box.scale.z * box.scale.z);
+        glm::vec3 box_min = glm::vec3(
+            box.position.x - max_horizontal_extent,
+            box.position.y - box.scale.y,
+            box.position.z - max_horizontal_extent
+        );
+        glm::vec3 box_max = glm::vec3(
+            box.position.x + max_horizontal_extent,
+            box.position.y + box.scale.y,
+            box.position.z + max_horizontal_extent
+        );
+        
+        float t_box = 0.0f;
+        if (RayAABBIntersection(ray_origin, ray_direction, box_min, box_max, t_box))
+        {
+            if (t_box > 0.0f && t_box < closest_box_t)
+            {
+                closest_box_t = t_box;
+                hit_box = true;
+            }
+        }
+    }
+    
+    // Verifica interseção com o jogador
+    const float entity_radius = 0.3f;
+    float closest_player_t = max_ray_distance;
+    bool hit_player = false;
+    
+    glm::vec4 to_player = glm::vec4(
+        g_Player.position.x - ray_origin.x,
+        g_Player.position.y - ray_origin.y,
+        g_Player.position.z - ray_origin.z,
+        0.0f
+    );
+    
+    float t_player = glm::dot(glm::vec3(to_player), glm::vec3(ray_direction));
+    
+    if (t_player > 0.0f && t_player < max_ray_distance)
+    {
+        glm::vec4 closest_point = ray_origin + ray_direction * t_player;
+        glm::vec4 to_closest = closest_point - g_Player.position;
+        float distance_sq = to_closest.x * to_closest.x + to_closest.y * to_closest.y + to_closest.z * to_closest.z;
+        
+        if (distance_sq <= entity_radius * entity_radius)
+        {
+            closest_player_t = t_player;
+            hit_player = true;
+        }
+    }
+    
+    // Determina o ponto de impacto mais próximo
+    if (hit_box && (!hit_player || closest_box_t < closest_player_t))
+    {
+        hit_point = ray_origin + ray_direction * closest_box_t;
+    }
+    else if (hit_player)
+    {
+        hit_point = ray_origin + ray_direction * closest_player_t;
+    }
+    
+    // Usa a mesma lógica do CameraRaycast para aplicar dano, etc.
+    CameraRaycast(ray_origin, ray_direction);
+    
+    // Armazena informações do raycast para desenhar a linha amarela
+    g_EnemyRaycastStart = ray_origin;
+    g_EnemyRaycastEnd = hit_point;
+    g_EnemyRaycastTime = (float)glfwGetTime(); // Registra o tempo atual
+    g_DrawEnemyRaycast = true;
 }
 
 // Spawna uma wave de monstros nas posições especificadas

@@ -24,6 +24,7 @@ uniform mat4 projection;
 #define PLANE  0
 #define PLAYER 1
 #define ENEMY  2
+#define BOX    10
 uniform int object_id;
 
 // Parâmetros da axis-aligned bounding box (AABB) do modelo
@@ -156,12 +157,24 @@ void main()
         // Cor verde para HP atual
         color.rgb = vec3(0.0, 1.0, 0.0);
     }
+    else if ( object_id == 11 ) // ENEMY_RAYCAST_LINE - linha amarela para raycast de inimigo
+    {
+        // Cor amarela para raycast de inimigo
+        color.rgb = vec3(1.0, 1.0, 0.0);
+    }
     else if (object_id == PLAYER)
     {
         // coordenadas já vieram do OBJ
         vec3 texcolor = texture(TextureImage0, texcoords).rgb;
         float lambert = max(0, dot(n,l));
         color.rgb = texcolor * (lambert + 0.2);
+    }
+    else if (object_id == BOX)
+    {
+        // Cor marrom/amadeirada para caixas e barrils
+        vec3 box_color = vec3(0.6, 0.4, 0.2); // Marrom/amadeirado
+        float lambert = max(0, dot(n,l));
+        color.rgb = box_color * (lambert + 0.2);
     }
     else
     {
