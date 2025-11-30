@@ -109,6 +109,11 @@ void DrawDirectionIndicator(glm::vec4 position, glm::vec4 forward, float length,
 void DrawCrosshair(GLFWwindow* window); // Desenha crosshair no centro da tela
 void DrawHealthBar(GLFWwindow* window, glm::vec4 world_position, float health, float max_health, glm::mat4 view, glm::mat4 projection); // Desenha barra de vida acima do inimigo
 void CameraRaycast(glm::vec4 camera_position, glm::vec4 ray_direction); // Realiza raycast e verifica interseções
+int SpawnWave(const std::vector<glm::vec4>& spawn_positions); // Spawna uma wave de monstros nas posições especificadas, retorna o ID da wave
+bool IsWaveComplete(int wave_id); // Verifica se todos os monstros de uma wave estão mortos
+void UpdateWaves(); // Atualiza o status de todas as waves
+std::vector<int> GetActiveWaves(); // Retorna os IDs de todas as waves ativas
+std::vector<int> GetCompleteWaves(); // Retorna os IDs de todas as waves completas
 GLuint LoadShader_Vertex(const char* filename);   // Carrega um vertex shader
 GLuint LoadShader_Fragment(const char* filename); // Carrega um fragment shader
 void LoadShader(const char* filename, GLuint shader_id); // Função utilizada pelas duas acima
@@ -375,7 +380,7 @@ struct Enemy
     float health;                // Vida do inimigo (0.0 a 100.0)
 
     // Construtor
-    Enemy(glm::vec4 spawn_pos)
+    Enemy(glm::vec4 spawn_pos, int wave = -1)
         : position(spawn_pos)
         , spawn_position(spawn_pos)
         , rotation_y(0.0f)
@@ -386,6 +391,7 @@ struct Enemy
         , current_speed(0.0f)
         , max_health(100.0f)
         , health(max_health)
+        , wave_id(wave)
     {
     }
 
@@ -440,6 +446,49 @@ struct Enemy
     {
         return health <= 0.0f;
     }
+
+    // ID da wave à qual este inimigo pertence (-1 se não pertence a nenhuma wave)
+    int wave_id;
+};
+
+// Estrutura que representa uma wave de monstros
+struct Wave
+{
+    int wave_id;                    // ID único da wave
+    std::vector<size_t> enemy_indices; // Índices dos inimigos desta wave no vetor g_Enemies
+    bool is_active;                  // Se a wave está ativa (ainda tem inimigos vivos)
+    bool is_complete;                // Se todos os inimigos da wave foram derrotados
+
+    Wave(int id) : wave_id(id), is_active(true), is_complete(false)
+    {
+    }
+
+    // Verifica se todos os inimigos da wave estão mortos
+    bool CheckCompletion(const std::vector<Enemy>& enemies)
+    {
+        if (is_complete)
+            return true;
+
+        // Verifica se todos os inimigos da wave estão mortos
+        bool all_dead = true;
+        for (size_t idx : enemy_indices)
+        {
+            if (idx < enemies.size() && !enemies[idx].IsDead())
+            {
+                all_dead = false;
+                break;
+            }
+        }
+
+        if (all_dead)
+        {
+            is_complete = true;
+            is_active = false;
+            return true;
+        }
+
+        return false;
+    }
 };
 
 // # ------------------------------------------------------------------------------- #
@@ -476,6 +525,10 @@ Player g_Player;
 
 // Lista de inimigos
 std::vector<Enemy> g_Enemies;
+
+// Lista de waves de monstros
+std::vector<Wave> g_Waves;
+int g_NextWaveID = 0; // Contador para gerar IDs únicos de waves
 
 // Variável que controla o tipo de projeção utilizada: perspectiva ou ortográfica.
 bool g_UsePerspectiveProjection = true;
@@ -682,9 +735,16 @@ int main(int argc, char* argv[])
     g_Player.camera_angle_horizontal = 0.0f;
     g_Player.camera_angle_vertical = 0.3f;
 
-    // Inicializamos alguns inimigos
-    g_Enemies.push_back(Enemy(glm::vec4(2.0f, 0.0f, 0.0f, 1.0f)));
-    g_Enemies.push_back(Enemy(glm::vec4(-2.0f, 0.0f, 0.0f, 1.0f)));
+    // Spawna uma wave de 4 inimigos ao redor do jogador
+    glm::vec4 player_pos = g_Player.position;
+    float spawn_distance = 5.0f; // Distância do jogador
+    std::vector<glm::vec4> wave_spawn_positions = {
+        glm::vec4(player_pos.x + spawn_distance, player_pos.y, player_pos.z, 1.0f),           // Direita
+        glm::vec4(player_pos.x - spawn_distance, player_pos.y, player_pos.z, 1.0f),           // Esquerda
+        glm::vec4(player_pos.x, player_pos.y, player_pos.z + spawn_distance, 1.0f),           // Frente
+        glm::vec4(player_pos.x, player_pos.y, player_pos.z - spawn_distance, 1.0f)            // Atrás
+    };
+    SpawnWave(wave_spawn_positions);
 
     if ( argc > 1 )
     {
@@ -736,12 +796,17 @@ int main(int argc, char* argv[])
         // Atualizamos os vetores de direção do jogador
         g_Player.UpdateDirectionVectors();
 
-        // Atualizamos todos os inimigos
+        // Atualizamos todos os inimigos (apenas os vivos)
         for (auto& enemy : g_Enemies)
         {
+            if (enemy.IsDead())
+                continue;
             enemy.UpdatePosition(delta_time);
             enemy.UpdateDirectionVectors();
         }
+
+        // Atualizamos o status das waves (verifica se estão completas)
+        UpdateWaves();
 
         // Câmera em terceira pessoa seguindo o jogador
         // A câmera é posicionada usando o sistema de terceira pessoa do jogador
@@ -809,9 +874,13 @@ int main(int argc, char* argv[])
             DrawVirtualObject(obj.first.c_str());
         }
 
-        // Desenhamos todos os inimigos
+        // Desenhamos todos os inimigos (apenas os vivos)
         for (const auto& enemy : g_Enemies)
         {
+            // Pula inimigos mortos - eles não devem ser renderizados
+            if (enemy.IsDead())
+                continue;
+
             // Ajusta a escala baseada no estado (agachado é menor)
             float scale_y = 0.3f;
             if (enemy.movement_state == Enemy::CROUCHING)
@@ -835,15 +904,19 @@ int main(int argc, char* argv[])
         // Indicador do jogador (verde)
         // DrawDirectionIndicator(g_Player.position, g_Player.forward_vector, 0.8f, view, projection, true);
 
-        // Indicadores dos inimigos (vermelho)
+        // Indicadores dos inimigos (vermelho) - apenas para inimigos vivos
         for (const auto& enemy : g_Enemies)
         {
+            if (enemy.IsDead())
+                continue;
             DrawDirectionIndicator(enemy.position, enemy.forward_vector, 0.8f, view, projection, false);
         }
 
-        // Desenhamos as barras de vida dos inimigos
+        // Desenhamos as barras de vida dos inimigos (apenas para inimigos vivos)
         for (const auto& enemy : g_Enemies)
         {
+            if (enemy.IsDead())
+                continue;
             DrawHealthBar(window, enemy.position, enemy.health, enemy.max_health, view, projection);
         }
 
@@ -2446,6 +2519,83 @@ void CameraRaycast(glm::vec4 camera_position, glm::vec4 ray_direction)
     }
 
     printf("Raycast: No hit\n");
+}
+
+// Spawna uma wave de monstros nas posições especificadas
+// Retorna o ID da wave criada
+int SpawnWave(const std::vector<glm::vec4>& spawn_positions)
+{
+    int wave_id = g_NextWaveID++;
+    Wave new_wave(wave_id);
+
+    // Cria os inimigos e adiciona à lista global
+    for (const auto& pos : spawn_positions)
+    {
+        size_t enemy_index = g_Enemies.size();
+        g_Enemies.push_back(Enemy(pos, wave_id));
+        new_wave.enemy_indices.push_back(enemy_index);
+    }
+
+    g_Waves.push_back(new_wave);
+
+    printf("Wave %d spawned with %zu enemies\n", wave_id, spawn_positions.size());
+    return wave_id;
+}
+
+// Verifica se todos os monstros de uma wave estão mortos
+bool IsWaveComplete(int wave_id)
+{
+    for (auto& wave : g_Waves)
+    {
+        if (wave.wave_id == wave_id)
+        {
+            return wave.CheckCompletion(g_Enemies);
+        }
+    }
+    return false; // Wave não encontrada
+}
+
+// Atualiza o status de todas as waves
+void UpdateWaves()
+{
+    for (auto& wave : g_Waves)
+    {
+        if (wave.is_active && !wave.is_complete)
+        {
+            if (wave.CheckCompletion(g_Enemies))
+            {
+                printf("Wave %d COMPLETE! All enemies defeated!\n", wave.wave_id);
+            }
+        }
+    }
+}
+
+// Retorna os IDs de todas as waves ativas (ainda não completas)
+std::vector<int> GetActiveWaves()
+{
+    std::vector<int> active_waves;
+    for (const auto& wave : g_Waves)
+    {
+        if (wave.is_active && !wave.is_complete)
+        {
+            active_waves.push_back(wave.wave_id);
+        }
+    }
+    return active_waves;
+}
+
+// Retorna os IDs de todas as waves completas
+std::vector<int> GetCompleteWaves()
+{
+    std::vector<int> complete_waves;
+    for (const auto& wave : g_Waves)
+    {
+        if (wave.is_complete)
+        {
+            complete_waves.push_back(wave.wave_id);
+        }
+    }
+    return complete_waves;
 }
 
 // set makeprg=cd\ ..\ &&\ make\ run\ >/dev/null
