@@ -163,6 +163,7 @@ struct Player
     float rotation_y;            // Rotação em torno do eixo Y (em radianos) - direção que o jogador está olhando
     glm::vec4 forward_vector;    // Vetor direção para frente do jogador (normalizado)
     glm::vec4 right_vector;      // Vetor direção para direita do jogador (normalizado)
+    glm::vec3 model_center; 	// centro do modelo em coordenadas de modelo
 
     // Estados de movimento
     enum MovementState {
@@ -259,10 +260,22 @@ struct Player
         return glm::vec4(x, y, z, 1.0f);
     }
 
-    // Calcula o ponto de look-at da câmera (um pouco acima do jogador)
     glm::vec4 GetCameraLookAt()
     {
-        return glm::vec4(position.x, position.y + 1.0f, position.z, 1.0f);
+        // Compensa o fato de que o modelo foi escalado com 0.3f
+        float scale = 0.3f;
+
+        glm::vec3 offset(0.0f, 0.0f, 0.0f);
+        offset.x = 0.3f;    // ← TESTE pra empurrar pra esquerda/direita
+        offset.y = 0.0f;    // ← altura, se estiver baixo/alto
+        offset.z = 0.0f;    // ← raramente precisa ajustar Z
+
+        return glm::vec4(
+            position.x - model_center.x * scale + offset.x,          // deslocamento real do centro
+            position.y - model_center.y * scale + offset.y,   
+            position.z - model_center.z * scale + offset.z,
+            1.0f
+        );
     }
 
     // Atualiza a posição do jogador baseado no movimento e no tempo decorrido
@@ -273,7 +286,12 @@ struct Player
         UpdateMovementState();
 
         // Calcula a direção da câmera (forward da câmera)
-        glm::vec4 camera_forward = GetCameraLookAt() - GetThirdPersonCameraPosition();
+        glm::vec4 camera_forward = glm::vec4(
+            GetCameraLookAt().x - GetThirdPersonCameraPosition().x,
+            GetCameraLookAt().y - GetThirdPersonCameraPosition().y,
+            GetCameraLookAt().z - GetThirdPersonCameraPosition().z,
+            0.0f // ← ESSENCIAL!!!
+        );
 
         camera_forward.y = 0.0f; // Mantém o movimento apenas no plano horizontal
 
@@ -413,6 +431,7 @@ struct Enemy
 // Veja na função main() como estes são acessados.
 
 std::map<std::string, SceneObject> g_VirtualScene;
+float g_CowboyMinY = 0.0f; // menor y do cowboy em coordenadas de modelo
 
 // Pilha que guardará as matrizes de modelagem.
 std::stack<glm::mat4>  g_MatrixStack;
@@ -473,41 +492,34 @@ GLuint g_LineVBO = 0;
 // ======================================================
 // CARREGA TODAS AS TEXTURAS CORRETAS DO COWBOY
 // ======================================================
-void LoadAllCowboyTextures()
+void LoadAllCowboyTextures(ObjModel& model)
 {
-    std::vector<std::pair<std::string, std::string>> material_to_file = {
-
-	{"__0043_SaddleBrown_1", "__0043_SaddleBrown_1.jpg"},
-	{"c_t9_cowboy_hat_01_leather_strip_c_defaultspec_11875100017641845408", 	"c_t9_cowboy_hat_01_leather_strip_c_defaultspec_11875100017641845408.jpg"},
-	{"c_t9_cowboy_hat_01_more_dirt_c_defaultspec_7807893481039461458", "c_t9_cowboy_hat_01_more_dirt_c_defaultspec_7807893481039461458.jpg"},
-	{"illust32", "illust32.jpg"},
-	{"Material__1", "Material__1.jpg"},
-	{"Material_1", "Material_1.png"},
-	{"Material_37", "Material_37.png"},
-	{"Material_38", "Material_38.png"},
-	{"Material_3", "Material_3.png"},
-	{"Material_5", "Material_5.png"},
-	{"Material_6", "Material_6.png"},
-	{"max_MT_Horse_Body4", "max_MT_Horse_Body4.jpg"},
-	{"max_MT_Horse_Eye2", "max_MT_Horse_Eye2.jpg"},
-	{"max_MT_Horse_Saddle4", "max_MT_Horse_Saddle4.jpg"},
-	{"__Metal_Corrugated_Shiny_2", "__Metal_Corrugated_Shiny_2.jpg"},
-	{"russian_loyalist_loadout_a_col", "russian_loyalist_loadout_a_col.jpg"},
-	{"russian_loyalist_loadout_b_col", "russian_loyalist_loadout_b_col.jpg"},
-	{"russian_loyalist_lowerbody_a_col", "russian_loyalist_lowerbody_a_col.jpg"},
-	{"russian_loyalist_upperbody_a_col1", "russian_loyalist_upperbody_a_col1.jpg"},
-	{"russian_loyalist_upperbody_a_col2", "russian_loyalist_upperbody_a_col2.jpg"},
-	{"spetsnaz_nikolai_informant_clean_arms_col", "spetsnaz_nikolai_informant_clean_arms_col.jpg"},
-    };
-
-    for (auto& mat : material_to_file)
+    for (const auto &mat : model.materials)
     {
-        GLuint tex = LoadTextureImage(("../../data/model/" + mat.second).c_str());
-        g_textureID[mat.first] = tex;
-        printf("✔ TEXTURA carregada: %-40s  → ID = %u\n",
-               mat.first.c_str(), tex);
+        if (!mat.diffuse_texname.empty())
+        {
+            std::string texname = mat.diffuse_texname;
+
+            // Se já começa com "model/", remover!
+            if (texname.rfind("model/", 0) == 0)
+            {
+                texname = texname.substr(6); // remove "model/"
+            }
+
+            std::string path = "../../data/model/" + texname;
+            GLuint tex = LoadTextureImage(path.c_str());
+            g_textureID[mat.name] = tex;
+
+            printf("✔ MATERIAL '%s'  →  textura '%s'  →  ID %u\n",
+                mat.name.c_str(), texname.c_str(), tex);
+        }
+        else
+        {
+            printf("⚠ MATERIAL '%s' NÃO TEM textura difusa!\n", mat.name.c_str());
+        }
     }
 }
+
 
 
 int main(int argc, char* argv[])
@@ -600,8 +612,12 @@ int main(int argc, char* argv[])
     ObjModel cowboymodel("../../data/cowboy.obj");
     ComputeNormals(&cowboymodel);
     BuildTrianglesAndAddToVirtualScene(&cowboymodel);
-    LoadAllCowboyTextures();
+    LoadAllCowboyTextures(cowboymodel);
 
+    const float player_scale = 0.3f;
+    const float ground_y = -1.1f;
+    g_CowboyMinY = std::numeric_limits<float>::max();
+    
     for (const auto &obj : g_VirtualScene)
     {
         // Ignora chão e cubo pra focar no cowboy
@@ -610,16 +626,37 @@ int main(int argc, char* argv[])
     
         printf("OBJETO \"%s\" usa MATERIAL \"%s\"\n",
                obj.first.c_str(), obj.second.material_name.c_str());
+        
+        g_CowboyMinY = std::min(g_CowboyMinY, obj.second.bbox_min.y);
     }
+    
+    SceneObject cowboy_obj = g_VirtualScene["cowboy"];
+    
+    glm::vec3 g_CowboyCenterModel = (cowboy_obj.bbox_min + cowboy_obj.bbox_max) * 0.5f;
+    
+    g_Player.model_center = g_CowboyCenterModel;   // agora o player sabe o centro real do modelo!
+
+    float center_x = (cowboy_obj.bbox_min.x + cowboy_obj.bbox_max.x) * 0.5f;
+    float center_z = (cowboy_obj.bbox_min.z + cowboy_obj.bbox_max.z) * 0.5f;
+
+    float player_y = ground_y - g_CowboyMinY * player_scale;
+
+    g_Player.position = glm::vec4(
+        -center_x * player_scale,
+        player_y,
+        -center_z * player_scale,
+        1.0f
+    );
+    g_Player.UpdateDirectionVectors();
+
+    printf(">>> Player pos = (%f, %f, %f)\n",
+           g_Player.position.x, g_Player.position.y, g_Player.position.z);
 
     //... e o modelo dos inimigos (the_cube)...
     ObjModel enemymodel("../../data/cube.obj");
     ComputeNormals(&enemymodel);
     BuildTrianglesAndAddToVirtualScene(&enemymodel);
 
-    // Inicializamos a posição do jogador (acima do plano, que está em y = -1.1)
-    g_Player.position = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
-    g_Player.UpdateDirectionVectors();
 
     // Inicializamos a câmera para começar olhando para o jogador
     g_Player.camera_angle_horizontal = 0.0f;
@@ -689,7 +726,7 @@ int main(int argc, char* argv[])
         // Câmera em terceira pessoa seguindo o jogador
         // A câmera é posicionada usando o sistema de terceira pessoa do jogador
         glm::vec4 camera_position_c  = g_Player.GetThirdPersonCameraPosition(); // Posição da câmera em terceira pessoa
-        glm::vec4 camera_lookat_l    = g_Player.GetCameraLookAt(); // Ponto "l", para onde a câmera (look-at) estará sempre olhando (o jogador)
+        glm::vec4 camera_lookat_l    = g_Player.GetCameraLookAt();
         glm::vec4 camera_view_vector = camera_lookat_l - camera_position_c; // Vetor "view", sentido para onde a câmera está virada
         glm::vec4 camera_up_vector   = glm::vec4(0.0f, 1.0f, 0.0f, 0.0f); // Vetor "up" fixado para apontar para o "céu" (eito Y global)
 
@@ -2147,7 +2184,12 @@ void CameraRaycast(glm::vec4 camera_position, glm::vec4 ray_direction)
     const float entity_radius = 0.3f; // Raio aproximado das entidades (baseado na escala)
 
     // Verifica interseção com o jogador
-    glm::vec4 to_player = g_Player.position - camera_position;
+    glm::vec4 to_player = glm::vec4(
+        g_Player.position.x - camera_position.x,
+        g_Player.position.y - camera_position.y,
+        g_Player.position.z - camera_position.z,
+        0.0f
+    );
     float t_player = glm::dot(glm::vec3(to_player), glm::vec3(ray_direction));
     
     if (t_player > 0.0f && t_player < max_ray_distance)
@@ -2168,7 +2210,12 @@ void CameraRaycast(glm::vec4 camera_position, glm::vec4 ray_direction)
     for (size_t i = 0; i < g_Enemies.size(); ++i)
     {
         const auto& enemy = g_Enemies[i];
-        glm::vec4 to_enemy = enemy.position - camera_position;
+        glm::vec4 to_enemy = glm::vec4(
+            enemy.position.x - camera_position.x,
+            enemy.position.y - camera_position.y,
+            enemy.position.z - camera_position.z,
+            0.0f
+        );
         float t_enemy = glm::dot(glm::vec3(to_enemy), glm::vec3(ray_direction));
         
         if (t_enemy > 0.0f && t_enemy < max_ray_distance)
