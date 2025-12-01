@@ -114,11 +114,15 @@ void main()
         U = 0.0;
         V = 0.0;
     }
-    else if ( object_id == PLANE )
+    else if (object_id == PLANE)
     {
-        // Coordenadas de textura do plano, obtidas do arquivo OBJ.
-        U = texcoords.x;
-        V = texcoords.y;
+        float TILE = 10.0;
+        vec2 uv = fract(texcoords * TILE);
+        vec3 texcolor = texture(TextureImage0, uv).rgb;
+
+        float lambert = max(0.0, dot(n, l));
+        color.rgb = texcolor * (lambert + 0.2);
+        return;
     }
 
     // Tratamento especial para linhas de direção, crosshair e barras de vida
@@ -178,9 +182,9 @@ void main()
     }
     else
     {
-        vec3 Kd0 = texture(TextureImage0, vec2(U,V)).rgb;
+        vec3 neutral_color = vec3(0.75, 0.75, 0.8);
         float lambert = max(0,dot(n,l));
-        color.rgb = Kd0 * (lambert + 0.01);
+        color.rgb = neutral_color * (lambert + 0.1);
     }
 
 

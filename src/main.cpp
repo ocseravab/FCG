@@ -647,7 +647,7 @@ void LoadAllCowboyTextures(ObjModel& model)
     }
 }
 
-
+GLuint texture_plane = 0;
 
 int main(int argc, char* argv[])
 {
@@ -702,6 +702,16 @@ int main(int argc, char* argv[])
     // Carregamento de todas funções definidas por OpenGL 3.3, utilizando a
     // biblioteca GLAD.
     gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
+    
+    texture_plane = LoadTextureImage("../../data/sand.jpg");
+    
+    glBindTexture(GL_TEXTURE_2D, texture_plane);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     // Configuramos o cursor para ficar desabilitado (escondido e travado na janela)
     // Isso permite movimento ilimitado do mouse para controle da câmera
@@ -734,6 +744,12 @@ int main(int argc, char* argv[])
     ObjModel planemodel("../../data/plane.obj");
     ComputeNormals(&planemodel);
     BuildTrianglesAndAddToVirtualScene(&planemodel);
+
+    {
+        SceneObject& plane_obj = g_VirtualScene["the_plane"];
+        GLuint plane_texture = LoadTextureImage("../../data/sand.jpg");
+        g_textureID[plane_obj.material_name] = plane_texture;
+    }
 
     // Carregamos o modelo do jogador (cowboy)...
     ObjModel cowboymodel("../../data/cowboy.obj");
@@ -952,7 +968,7 @@ int main(int argc, char* argv[])
 
         // Veja slides 176-204 do documento Aula_09_Projecoes.pdf.
         float nearplane = -0.1f;
-        float farplane  = -15.0f;
+        float farplane  = -25.0f;
 
         if (g_UsePerspectiveProjection)
         {
@@ -998,22 +1014,25 @@ int main(int argc, char* argv[])
             DrawVirtualObject("the_cube");
         }
 
-        // Desenhamos o jogador
-        // Primeiro transladamos para a posição do jogador, depois rotacionamos em torno do eixo Y
-        model = Matrix_Translate(g_Player.position.x, g_Player.position.y, g_Player.position.z);
-        model = model * Matrix_Rotate_Y(g_Player.rotation_y);
-        // Escalamos um pouco para que o jogador seja visível
-        model = model * Matrix_Scale(0.3f, 0.3f, 0.3f);
-        glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
-        glUniform1i(g_object_id_uniform, PLAYER);
-        for (const auto& obj : g_VirtualScene)
+        if (g_CameraMode == CAMERA_THIRD_PERSON)
         {
-            // Ignorar os objetos anteriores (chão e cubo)
-            if (obj.first == "the_plane" || obj.first == "the_cube")
-                 continue;
-
+            // Desenhamos o jogador APENAS se for câmera em terceira pessoa
+            // Primeiro transladamos para a posição do jogador, depois rotacionamos em torno do eixo Y
+            model = Matrix_Translate(g_Player.position.x, g_Player.position.y, g_Player.position.z);
+            model = model * Matrix_Rotate_Y(g_Player.rotation_y);
+            // Escalamos um pouco para que o jogador seja visível
+            model = model * Matrix_Scale(0.3f, 0.3f, 0.3f);
             glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
-            DrawVirtualObject(obj.first.c_str());
+            glUniform1i(g_object_id_uniform, PLAYER);
+            for (const auto& obj : g_VirtualScene)
+            {
+                // Ignorar os objetos anteriores (chão e cubo)
+                if (obj.first == "the_plane" || obj.first == "the_cube")
+                     continue;
+    
+                glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
+                DrawVirtualObject(obj.first.c_str());
+            }
         }
 
         // Desenhamos todos os inimigos (apenas os vivos)
@@ -1173,19 +1192,29 @@ GLuint LoadTextureImage(const char* filename)
 void DrawVirtualObject(const char* object_name)
 {
     SceneObject obj = g_VirtualScene[object_name];
-    auto it = g_textureID.find(obj.material_name);
-    if (it != g_textureID.end())
+    
+    if (strcmp(object_name, "the_plane") == 0)  // nome do objeto no .obj
     {
         glUniform1i(glGetUniformLocation(g_GpuProgramID, "use_texture"), 1);
-        glActiveTexture(GL_TEXTURE0);  // ativa slot 0
-        glBindTexture(GL_TEXTURE_2D, it->second);  // textura correta
-        glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage0"), 0);  // avisa ao shader
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, texture_plane);    // <<--- usa SÓ a areia
+        glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage0"), 0);
     }
     else
     {
-        glUniform1i(glGetUniformLocation(g_GpuProgramID, "use_texture"), 0);
+        auto it = g_textureID.find(obj.material_name);
+        if (it != g_textureID.end())
+        {
+            glUniform1i(glGetUniformLocation(g_GpuProgramID, "use_texture"), 1);
+            glActiveTexture(GL_TEXTURE0);  // ativa slot 0
+            glBindTexture(GL_TEXTURE_2D, it->second);  // textura correta
+            glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage0"), 0);  // avisa ao shader
+        }
+        else
+        {
+            glUniform1i(glGetUniformLocation(g_GpuProgramID, "use_texture"), 0);
+        }
     }
-
     // "Ligamos" o VAO. Informamos que queremos utilizar os atributos de
     // vértices apontados pelo VAO criado pela função BuildTrianglesAndAddToVirtualScene(). Veja
     // comentários detalhados dentro da definição de BuildTrianglesAndAddToVirtualScene().
@@ -1918,7 +1947,7 @@ void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset)
         g_FirstPersonFOV -= glm::radians(yoffset * 2.0f); // scroll muda só o FOV da primeira pessoa
 
         // Limites de FOV
-        float minFOV = glm::radians(35.0f);  // zoom bem fechado
+        float minFOV = glm::radians(30.0f);  // zoom bem fechado
         float maxFOV = glm::radians(100.0f); // visão ampla
         g_FirstPersonFOV = glm::clamp(g_FirstPersonFOV, minFOV, maxFOV);
     }
