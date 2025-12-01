@@ -173,7 +173,7 @@ enum CameraMode {
 };
 
 CameraMode g_CameraMode = CAMERA_THIRD_PERSON; // modo padrão
-
+float g_FirstPersonFOV = 3.141592f / 3.0f;  // 60 graus
 
 // Estrutura que representa o jogador
 struct Player
@@ -247,7 +247,7 @@ struct Player
         , reload_time(0.0f)
         , reload_time_total(2.0f)     // 2 segundos para recarregar
         , is_reloading(false)
-        , camera_distance(3.0f)
+        , camera_distance(3.5f)
         , camera_height(1.5f)
         , camera_angle_horizontal(0.0f)
         , camera_angle_vertical(0.3f)  // Câmera ligeiramente acima
@@ -952,12 +952,14 @@ int main(int argc, char* argv[])
 
         // Veja slides 176-204 do documento Aula_09_Projecoes.pdf.
         float nearplane = -0.1f;
-        float farplane  = -10.0f;
+        float farplane  = -15.0f;
 
         if (g_UsePerspectiveProjection)
         {
-            float field_of_view = 3.141592 / 3.0f;
-            projection = Matrix_Perspective(field_of_view, g_ScreenRatio, nearplane, farplane);
+            if (g_CameraMode == CAMERA_FIRST_PERSON)
+                projection = Matrix_Perspective(g_FirstPersonFOV, g_ScreenRatio, nearplane, farplane);
+            else
+                projection = Matrix_Perspective(3.141592f / 3.0f, g_ScreenRatio, nearplane, farplane);
         }
         else
         {
@@ -1890,24 +1892,36 @@ void CursorPosCallback(GLFWwindow* window, double xpos, double ypos)
 // Função callback chamada sempre que o usuário movimenta a "rodinha" do mouse.
 void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset)
 {
-    // Atualizamos a distância da câmera em terceira pessoa do jogador utilizando a
-    // movimentação da "rodinha", simulando um ZOOM.
-    g_Player.camera_distance -= 0.1f*yoffset;
+    if (g_CameraMode == CAMERA_THIRD_PERSON)
+    {
+        // Atualizamos a distância da câmera em terceira pessoa do jogador utilizando a
+        // movimentação da "rodinha", simulando um ZOOM.
+        g_Player.camera_distance -= 0.1f*yoffset;
 
-    // Uma câmera look-at nunca pode estar exatamente "em cima" do ponto para
-    // onde ela está olhando, pois isto gera problemas de divisão por zero na
-    // definição do sistema de coordenadas da câmera. Isto é, a variável abaixo
-    // nunca pode ser zero. Versões anteriores deste código possuíam este bug,
-    // o qual foi detectado pelo aluno Vinicius Fraga (2017/2).
-    const float verysmallnumber = std::numeric_limits<float>::epsilon();
-    const float maxdistance = 20.0f; // Distância máxima
-    const float mindistance = 1.0f;  // Distância mínima
+        // Uma câmera look-at nunca pode estar exatamente "em cima" do ponto para
+        // onde ela está olhando, pois isto gera problemas de divisão por zero na
+        // definição do sistema de coordenadas da câmera. Isto é, a variável abaixo
+        // nunca pode ser zero. Versões anteriores deste código possuíam este bug,
+        // o qual foi detectado pelo aluno Vinicius Fraga (2017/2).
+        const float verysmallnumber = std::numeric_limits<float>::epsilon();
+        const float maxdistance = 20.0f; // Distância máxima
+        const float mindistance = 1.0f;  // Distância mínima
 
-    if (g_Player.camera_distance < mindistance)
-        g_Player.camera_distance = mindistance;
+        if (g_Player.camera_distance < mindistance)
+            g_Player.camera_distance = mindistance;
 
-    if (g_Player.camera_distance > maxdistance)
-        g_Player.camera_distance = maxdistance;
+        if (g_Player.camera_distance > maxdistance)
+            g_Player.camera_distance = maxdistance;
+    }
+    if (g_CameraMode == CAMERA_FIRST_PERSON)
+    {
+        g_FirstPersonFOV -= glm::radians(yoffset * 2.0f); // scroll muda só o FOV da primeira pessoa
+
+        // Limites de FOV
+        float minFOV = glm::radians(35.0f);  // zoom bem fechado
+        float maxFOV = glm::radians(100.0f); // visão ampla
+        g_FirstPersonFOV = glm::clamp(g_FirstPersonFOV, minFOV, maxFOV);
+    }
 }
 
 // Definição da função que será chamada sempre que o usuário pressionar alguma
