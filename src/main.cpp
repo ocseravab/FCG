@@ -105,6 +105,8 @@ void ComputeNormals(ObjModel* model); // Computa normais de um ObjModel, caso n�
 void LoadShadersFromFiles(); // Carrega os shaders de vértice e fragmento, criando um programa de GPU
 GLuint LoadTextureImage(const char* filename); // Função que carrega imagens de textura
 void DrawVirtualObject(const char* object_name); // Desenha um objeto armazenado em g_VirtualScene
+void DrawDirectionIndicator(glm::vec4 position, glm::vec4 forward, float length, glm::mat4 view, glm::mat4 projection, bool is_player = false); // Desenha indicador de direção
+void DrawEnemyHitbox(glm::vec4 position, float radius, glm::mat4 view, glm::mat4 projection); // Desenha hitbox do inimigo (esfera wireframe)
 void DrawCrosshair(GLFWwindow* window); // Desenha crosshair no centro da tela
 void DrawHealthBar(GLFWwindow* window, glm::vec4 world_position, float health, float max_health, glm::mat4 view, glm::mat4 projection); // Desenha barra de vida acima do inimigo
 void DrawHUD(GLFWwindow* window); // Desenha HUD com HP e munição do jogador
@@ -543,6 +545,7 @@ struct Wave
 std::map<std::string, SceneObject> g_VirtualScene;
 float g_CowboyMinY = 0.0f; // menor y do cowboy em coordenadas de modelo
 float g_BanditMinY = 0.0f;
+glm::vec3 g_BanditCenterModel = glm::vec3(0.0f); // centro do bandit em coordenadas de modelo
 
 // Pilha que guardará as matrizes de modelagem.
 std::stack<glm::mat4>  g_MatrixStack;
@@ -732,9 +735,9 @@ int main(int argc, char* argv[])
     // Carregamento de todas funções definidas por OpenGL 3.3, utilizando a
     // biblioteca GLAD.
     gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
-    
+
     texture_plane = LoadTextureImage("../../data/sand.jpg");
-    
+
     glBindTexture(GL_TEXTURE_2D, texture_plane);
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -834,7 +837,7 @@ printf("============================\n\n");
     g_BanditMinY = std::numeric_limits<float>::max();
 
     SceneObject bandit_obj = g_VirtualScene["bandit"];
-    glm::vec3 g_BanditCenterModel = (bandit_obj.bbox_min + bandit_obj.bbox_max) * 0.5f;
+    g_BanditCenterModel = (bandit_obj.bbox_min + bandit_obj.bbox_max) * 0.5f;
     g_BanditMinY = bandit_obj.bbox_min.y;
 
     center_x = (bandit_obj.bbox_min.x + bandit_obj.bbox_max.x) * 0.5f;
@@ -897,7 +900,7 @@ printf("============================\n\n");
 
     // Spawna uma wave de 4 inimigos ao redor do jogador
     glm::vec4 player_pos = g_Player.position;
-    
+
     // Calcula a posição Y correta para os inimigos
     // O cubo vai de -1 a +1, e é escalado por 0.3, então vai de -0.3 a +0.3
 
@@ -1002,7 +1005,7 @@ printf("============================\n\n");
 
         glm::vec4 camera_position_c;
         glm::vec4 camera_lookat_l;
-        
+
         if (g_CameraMode == CAMERA_THIRD_PERSON)
         {
             camera_position_c = g_Player.GetThirdPersonCameraPosition();
@@ -1117,12 +1120,55 @@ printf("============================\n\n");
             }
         }
 
+        // Desenhamos as hitboxes dos inimigos (apenas para inimigos vivos)
+        const float entity_radius = 0.3f; // Raio da hitbox (mesmo usado na detecção de colisão)
+        const float enemy_scale = 0.3f;
+        const float scale_y = 0.3f;
+        const float ground_y = -1.1f;
+        
+        // Obtém os offsets do centro do modelo em coordenadas de modelo
+        SceneObject bandit_obj = g_VirtualScene["bandit"];
+        float center_x = (bandit_obj.bbox_min.x + bandit_obj.bbox_max.x) * 0.5f;
+        float center_z = (bandit_obj.bbox_min.z + bandit_obj.bbox_max.z) * 0.5f;
+        float model_height = bandit_obj.bbox_max.y - bandit_obj.bbox_min.y;
+        
+        for (const auto& enemy : g_Enemies)
+        {
+            if (enemy.IsDead())
+                continue;
+            
+            // O modelo é renderizado com: Translate(enemy.position) * RotateY * Scale(enemy_scale, scale_y, enemy_scale)
+            // enemy.position tem offset -center_x*enemy_scale para X e -center_z*enemy_scale para Z
+            // Após a transformação, o centro do modelo em world space é:
+            // X: enemy.position.x + center_x*enemy_scale = -center_x*enemy_scale + center_x*enemy_scale = 0 (relativo ao spawn)
+            // Mas enemy.position.x já inclui a posição de spawn, então o centro X é enemy.position.x + center_x*enemy_scale
+            // Na verdade, como enemy.position.x = spawn_x - center_x*enemy_scale, o centro X é spawn_x
+            // Então o centro absoluto é:
+            glm::vec4 hitbox_center = glm::vec4(
+                enemy.position.x + center_x * enemy_scale,  // X: posição de spawn (cancelando offset)
+                enemy.position.y + g_BanditCenterModel.y * scale_y,  // Y: base + metade da altura escalada
+                enemy.position.z + center_z * enemy_scale,  // Z: posição de spawn (cancelando offset)
+                1.0f
+            );
+            
+            // Ajusta Y para garantir que a hitbox fique acima do chão
+            // O bottom da hitbox deve estar no mínimo no nível do chão
+            float hitbox_bottom = hitbox_center.y - entity_radius;
+            if (hitbox_bottom < ground_y)
+            {
+                // Move a hitbox para cima para que o bottom fique no chão
+                hitbox_center.y = ground_y + entity_radius;
+            }
+            
+            DrawEnemyHitbox(hitbox_center, entity_radius, view, projection);
+        }
+
         // Desenha linha amarela do raycast de inimigo se ativada e ainda dentro do tempo
         if (g_DrawEnemyRaycast)
         {
             float current_time = (float)glfwGetTime();
             float elapsed_time = current_time - g_EnemyRaycastTime;
-            
+
             if (elapsed_time < g_EnemyRaycastDuration)
             {
                 DrawRaycastLine(g_EnemyRaycastStart, g_EnemyRaycastEnd, view, projection);
@@ -1236,7 +1282,7 @@ GLuint LoadTextureImage(const char* filename)
 void DrawVirtualObject(const char* object_name)
 {
     SceneObject obj = g_VirtualScene[object_name];
-    
+
     if (strcmp(object_name, "the_plane") == 0)  // nome do objeto no .obj
     {
         glUniform1i(glGetUniformLocation(g_GpuProgramID, "use_texture"), 1);
@@ -1921,7 +1967,7 @@ void CursorPosCallback(GLFWwindow* window, double xpos, double ypos)
     // Deslocamento do cursor do mouse em x e y de coordenadas de tela!
     float dx = xpos - g_LastCursorPosX;
     float dy = ypos - g_LastCursorPosY;
-    
+
     g_LastCursorPosX = xpos;
     g_LastCursorPosY = ypos;
 
@@ -1937,7 +1983,7 @@ void CursorPosCallback(GLFWwindow* window, double xpos, double ypos)
         g_Player.camera_angle_vertical = glm::clamp(g_Player.camera_angle_vertical, vmin, vmax);
     }
 
-    if (g_CameraMode == CAMERA_FIRST_PERSON)  
+    if (g_CameraMode == CAMERA_FIRST_PERSON)
     {
         float sensitivity = 0.002f;
         g_Player.camera_angle_horizontal -= dx * 0.002f;
@@ -2458,6 +2504,87 @@ void DrawDirectionIndicator(glm::vec4 position, glm::vec4 forward, float length,
     glBindVertexArray(0);
 }
 
+// Desenha hitbox do inimigo (esfera wireframe)
+void DrawEnemyHitbox(glm::vec4 position, float radius, glm::mat4 view, glm::mat4 projection)
+{
+    // Cria VAO e VBO se ainda não existirem
+    if (g_LineVAO == 0)
+    {
+        glGenVertexArrays(1, &g_LineVAO);
+        glGenBuffers(1, &g_LineVBO);
+    }
+
+    // Desenha círculos em 3 planos para formar uma esfera wireframe
+    const int num_segments = 32; // Número de segmentos do círculo
+    std::vector<float> vertices;
+
+    // Círculo no plano XY (horizontal)
+    for (int i = 0; i <= num_segments; ++i)
+    {
+        float angle = 2.0f * M_PI * i / num_segments;
+        vertices.push_back(position.x + radius * cos(angle));
+        vertices.push_back(position.y);
+        vertices.push_back(position.z + radius * sin(angle));
+        vertices.push_back(1.0f);
+    }
+
+    // Círculo no plano XZ (vertical, rotacionado)
+    for (int i = 0; i <= num_segments; ++i)
+    {
+        float angle = 2.0f * M_PI * i / num_segments;
+        vertices.push_back(position.x + radius * cos(angle));
+        vertices.push_back(position.y + radius * sin(angle));
+        vertices.push_back(position.z);
+        vertices.push_back(1.0f);
+    }
+
+    // Círculo no plano YZ (vertical, perpendicular)
+    for (int i = 0; i <= num_segments; ++i)
+    {
+        float angle = 2.0f * M_PI * i / num_segments;
+        vertices.push_back(position.x);
+        vertices.push_back(position.y + radius * cos(angle));
+        vertices.push_back(position.z + radius * sin(angle));
+        vertices.push_back(1.0f);
+    }
+
+    // Configura o VAO
+    glBindVertexArray(g_LineVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, g_LineVBO);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(0);
+
+    // Usa o shader principal
+    glUseProgram(g_GpuProgramID);
+
+    // Matriz de modelagem identidade (hitbox já está em coordenadas do mundo)
+    glm::mat4 model = Matrix_Identity();
+    glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
+    glUniformMatrix4fv(g_view_uniform, 1, GL_FALSE, glm::value_ptr(view));
+    glUniformMatrix4fv(g_projection_uniform, 1, GL_FALSE, glm::value_ptr(projection));
+
+    // Define cor ciano para hitbox
+    #define ENEMY_HITBOX 12
+    glUniform1i(g_object_id_uniform, ENEMY_HITBOX);
+
+    // Desabilita culling para linhas
+    glDisable(GL_CULL_FACE);
+
+    // Desenha os 3 círculos
+    glLineWidth(2.0f);
+    int vertices_per_circle = num_segments + 1;
+    glDrawArrays(GL_LINE_STRIP, 0, vertices_per_circle); // Círculo XY
+    glDrawArrays(GL_LINE_STRIP, vertices_per_circle, vertices_per_circle); // Círculo XZ
+    glDrawArrays(GL_LINE_STRIP, vertices_per_circle * 2, vertices_per_circle); // Círculo YZ
+    glLineWidth(1.0f);
+
+    // Reabilita culling
+    glEnable(GL_CULL_FACE);
+
+    glBindVertexArray(0);
+}
+
 // Função que desenha um crosshair no centro da tela
 void DrawCrosshair(GLFWwindow* window)
 {
@@ -2862,7 +2989,7 @@ void CameraRaycast(glm::vec4 camera_position, glm::vec4 ray_direction)
         // Como a rotação é apenas em torno do eixo Y, o AABB em Y não muda,
         // mas em X e Z precisamos considerar a diagonal máxima após rotação
         float max_horizontal_extent = sqrt(box.scale.x * box.scale.x + box.scale.z * box.scale.z);
-        
+
         glm::vec3 box_min = glm::vec3(
             box.position.x - max_horizontal_extent,
             box.position.y - box.scale.y,
@@ -2888,7 +3015,7 @@ void CameraRaycast(glm::vec4 camera_position, glm::vec4 ray_direction)
     // Verifica interseção com o jogador
     float closest_player_t = max_ray_distance;
     bool hit_player = false;
-    
+
     glm::vec4 to_player = glm::vec4(
         g_Player.position.x - camera_position.x,
         g_Player.position.y - camera_position.y,
@@ -2962,14 +3089,14 @@ void CameraRaycast(glm::vec4 camera_position, glm::vec4 ray_direction)
             printf("Raycast hit: BOX at distance %.2f (blocking player)\n", closest_box_t);
             return;
         }
-        
+
         // Verifica se a caixa está na frente do inimigo
         if (hit_enemy && closest_box_t < closest_enemy_t)
         {
             printf("Raycast hit: BOX at distance %.2f (blocking enemy)\n", closest_box_t);
             return;
         }
-        
+
         // Se não há jogador nem inimigo, ou se a caixa não está na frente, ainda pode ser o hit mais próximo
         if (!hit_player && !hit_enemy)
         {
@@ -2990,7 +3117,7 @@ void CameraRaycast(glm::vec4 camera_position, glm::vec4 ray_direction)
     if (hit_enemy && closest_enemy_index != SIZE_MAX && (!hit_box || closest_enemy_t < closest_box_t))
     {
         auto& enemy = g_Enemies[closest_enemy_index];
-        
+
         // Aplica dano ao inimigo através do método TakeDamage
         enemy.TakeDamage(player_damage_amount);
 
@@ -3014,13 +3141,13 @@ void PlayerRaycast()
 {
     // Posição do centro do jogador (usando a posição do jogador)
     glm::vec4 ray_origin = g_Player.position;
-    
+
     // Direção é o vetor forward do jogador (direção que ele está olhando)
     glm::vec4 ray_direction = g_Player.forward_vector;
-    
+
     // Normaliza o vetor de direção
-    float dir_length = sqrt(ray_direction.x * ray_direction.x + 
-                           ray_direction.y * ray_direction.y + 
+    float dir_length = sqrt(ray_direction.x * ray_direction.x +
+                           ray_direction.y * ray_direction.y +
                            ray_direction.z * ray_direction.z);
     if (dir_length > 0.001f)
     {
@@ -3028,11 +3155,11 @@ void PlayerRaycast()
         ray_direction.y /= dir_length;
         ray_direction.z /= dir_length;
     }
-    
+
     printf("=== PlayerRaycast: From player center (%.2f, %.2f, %.2f) in direction (%.2f, %.2f, %.2f) ===\n",
            ray_origin.x, ray_origin.y, ray_origin.z,
            ray_direction.x, ray_direction.y, ray_direction.z);
-    
+
     // Usa a mesma lógica do CameraRaycast mas com origem e direção diferentes
     CameraRaycast(ray_origin, ray_direction);
 }
@@ -3093,23 +3220,23 @@ void EnemyToPlayerRaycast(size_t enemy_index)
     // Verifica se o índice é válido
     if (enemy_index >= g_Enemies.size())
     {
-        printf("EnemyToPlayerRaycast: Invalid enemy index %zu (total enemies: %zu)\n", 
+        printf("EnemyToPlayerRaycast: Invalid enemy index %zu (total enemies: %zu)\n",
                enemy_index, g_Enemies.size());
         return;
     }
-    
+
     auto& enemy = g_Enemies[enemy_index];
-    
+
     // Verifica se o inimigo está morto
     if (enemy.IsDead())
     {
         printf("EnemyToPlayerRaycast: Enemy %zu is dead\n", enemy_index);
         return;
     }
-    
+
     // Posição do centro do inimigo
     glm::vec4 ray_origin = enemy.position;
-    
+
     // Direção do inimigo para o jogador
     glm::vec4 ray_direction = glm::vec4(
         g_Player.position.x - enemy.position.x,
@@ -3117,10 +3244,10 @@ void EnemyToPlayerRaycast(size_t enemy_index)
         g_Player.position.z - enemy.position.z,
         0.0f
     );
-    
+
     // Normaliza o vetor de direção
-    float dir_length = sqrt(ray_direction.x * ray_direction.x + 
-                           ray_direction.y * ray_direction.y + 
+    float dir_length = sqrt(ray_direction.x * ray_direction.x +
+                           ray_direction.y * ray_direction.y +
                            ray_direction.z * ray_direction.z);
     if (dir_length > 0.001f)
     {
@@ -3133,26 +3260,26 @@ void EnemyToPlayerRaycast(size_t enemy_index)
         printf("EnemyToPlayerRaycast: Enemy %zu is at same position as player\n", enemy_index);
         return;
     }
-    
+
     // Rotaciona o inimigo para enfrentar o jogador
     // Usa atan2 para calcular o ângulo de rotação em torno do eixo Y
     // Similar ao que é feito para o jogador, mas com sinal invertido para corrigir direção
     enemy.rotation_y = atan2(ray_direction.x, -ray_direction.z);
     enemy.UpdateDirectionVectors();
-    
+
     printf("=== EnemyToPlayerRaycast: From enemy %zu (%.2f, %.2f, %.2f) to player (%.2f, %.2f, %.2f) ===\n",
            enemy_index,
            ray_origin.x, ray_origin.y, ray_origin.z,
            g_Player.position.x, g_Player.position.y, g_Player.position.z);
-    
+
     // Realiza o raycast e encontra o ponto de impacto
     const float max_ray_distance = 100.0f;
     glm::vec4 hit_point = ray_origin + ray_direction * max_ray_distance; // Default: max distance
-    
+
     // Verifica interseção com caixas primeiro
     float closest_box_t = max_ray_distance;
     bool hit_box = false;
-    
+
     for (const auto& box : g_Boxes)
     {
         float max_horizontal_extent = sqrt(box.scale.x * box.scale.x + box.scale.z * box.scale.z);
@@ -3166,7 +3293,7 @@ void EnemyToPlayerRaycast(size_t enemy_index)
             box.position.y + box.scale.y,
             box.position.z + max_horizontal_extent
         );
-        
+
         float t_box = 0.0f;
         if (RayAABBIntersection(ray_origin, ray_direction, box_min, box_max, t_box))
         {
@@ -3177,34 +3304,34 @@ void EnemyToPlayerRaycast(size_t enemy_index)
             }
         }
     }
-    
+
     // Verifica interseção com o jogador
     const float entity_radius = 0.3f;
     float closest_player_t = max_ray_distance;
     bool hit_player = false;
-    
+
     glm::vec4 to_player = glm::vec4(
         g_Player.position.x - ray_origin.x,
         g_Player.position.y - ray_origin.y,
         g_Player.position.z - ray_origin.z,
         0.0f
     );
-    
+
     float t_player = glm::dot(glm::vec3(to_player), glm::vec3(ray_direction));
-    
+
     if (t_player > 0.0f && t_player < max_ray_distance)
     {
         glm::vec4 closest_point = ray_origin + ray_direction * t_player;
         glm::vec4 to_closest = closest_point - g_Player.position;
         float distance_sq = to_closest.x * to_closest.x + to_closest.y * to_closest.y + to_closest.z * to_closest.z;
-        
+
         if (distance_sq <= entity_radius * entity_radius)
         {
             closest_player_t = t_player;
             hit_player = true;
         }
     }
-    
+
     // Determina o ponto de impacto mais próximo
     if (hit_box && (!hit_player || closest_box_t < closest_player_t))
     {
@@ -3214,10 +3341,10 @@ void EnemyToPlayerRaycast(size_t enemy_index)
     {
         hit_point = ray_origin + ray_direction * closest_player_t;
     }
-    
+
     // Usa a mesma lógica do CameraRaycast para aplicar dano, etc.
     CameraRaycast(ray_origin, ray_direction);
-    
+
     // Armazena informações do raycast para desenhar a linha amarela
     g_EnemyRaycastStart = ray_origin;
     g_EnemyRaycastEnd = hit_point;

@@ -122,6 +122,11 @@ void main()
         // Cor amarela para raycast de inimigo
         color.rgb = vec3(1.0, 1.0, 0.0);
     }
+    else if ( object_id == 12 ) // ENEMY_HITBOX - hitbox do inimigo (ciano)
+    {
+        // Cor ciano para hitbox do inimigo
+        color.rgb = vec3(0.0, 1.0, 1.0);
+    }
     else if (object_id == PLAYER)
     {
         // coordenadas já vieram do OBJ
