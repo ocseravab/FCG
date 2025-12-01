@@ -545,6 +545,7 @@ struct Wave
 
 std::map<std::string, SceneObject> g_VirtualScene;
 float g_CowboyMinY = 0.0f; // menor y do cowboy em coordenadas de modelo
+float g_BanditMinY = 0.0f;
 
 // Pilha que guardará as matrizes de modelagem.
 std::stack<glm::mat4>  g_MatrixStack;
@@ -646,6 +647,38 @@ void LoadAllCowboyTextures(ObjModel& model)
         }
     }
 }
+
+// ======================================================
+// CARREGA TODAS AS TEXTURAS CORRETAS DO INIMIGO
+// ======================================================
+void LoadAllBanditTextures(ObjModel& model_bandit)
+{
+    for (const auto &mat : model_bandit.materials)
+    {
+        if (!mat.diffuse_texname.empty())
+        {
+            std::string texname = mat.diffuse_texname;
+
+            // Se já começa com "model_bandit/", remover!
+            if (texname.rfind("model_bandit/", 0) == 0)
+            {
+                texname = texname.substr(13); // remove "model_bandit/"
+            }
+
+            std::string path = "../../data/model_bandit/" + texname;
+            GLuint tex = LoadTextureImage(path.c_str());
+            g_textureID[mat.name] = tex;
+
+            printf("✔ MATERIAL '%s'  →  textura '%s'  →  ID %u\n",
+                mat.name.c_str(), texname.c_str(), tex);
+        }
+        else
+        {
+            printf("⚠ MATERIAL '%s' NÃO TEM textura difusa!\n", mat.name.c_str());
+        }
+    }
+}
+
 
 GLuint texture_plane = 0;
 
@@ -761,22 +794,9 @@ int main(int argc, char* argv[])
     const float ground_y = -1.1f;
     g_CowboyMinY = std::numeric_limits<float>::max();
 
-    for (const auto &obj : g_VirtualScene)
-    {
-        // Ignora chão e cubo pra focar no cowboy
-        if (obj.first == "the_plane" || obj.first == "the_cube")
-            continue;
-
-        printf("OBJETO \"%s\" usa MATERIAL \"%s\"\n",
-               obj.first.c_str(), obj.second.material_name.c_str());
-
-        g_CowboyMinY = std::min(g_CowboyMinY, obj.second.bbox_min.y);
-    }
-
     SceneObject cowboy_obj = g_VirtualScene["cowboy"];
-
     glm::vec3 g_CowboyCenterModel = (cowboy_obj.bbox_min + cowboy_obj.bbox_max) * 0.5f;
-
+    g_CowboyMinY = cowboy_obj.bbox_min.y;
     g_Player.model_center = g_CowboyCenterModel;   // agora o player sabe o centro real do modelo!
 
     float center_x = (cowboy_obj.bbox_min.x + cowboy_obj.bbox_max.x) * 0.5f;
@@ -795,10 +815,42 @@ int main(int argc, char* argv[])
     printf(">>> Player pos = (%f, %f, %f)\n",
            g_Player.position.x, g_Player.position.y, g_Player.position.z);
 
-    //... e o modelo dos inimigos (the_cube)...
-    ObjModel enemymodel("../../data/cube.obj");
-    ComputeNormals(&enemymodel);
-    BuildTrianglesAndAddToVirtualScene(&enemymodel);
+    // ...e o modelo dos inimigos (bandit)...
+    ObjModel banditmodel("../../data/bandit.obj");
+    ComputeNormals(&banditmodel);
+    BuildTrianglesAndAddToVirtualScene(&banditmodel);
+    LoadAllBanditTextures(banditmodel);
+
+    const float enemy_scale = 0.3f;
+    g_BanditMinY = std::numeric_limits<float>::max();
+
+    SceneObject bandit_obj = g_VirtualScene["bandit"];
+    glm::vec3 g_BanditCenterModel = (bandit_obj.bbox_min + bandit_obj.bbox_max) * 0.5f;
+    g_BanditMinY = bandit_obj.bbox_min.y;
+
+    center_x = (bandit_obj.bbox_min.x + bandit_obj.bbox_max.x) * 0.5f;
+    center_z = (bandit_obj.bbox_min.z + bandit_obj.bbox_max.z) * 0.5f;
+
+    float enemy_y = ground_y - g_BanditMinY * enemy_scale;
+
+    for (auto& enemy : g_Enemies)
+    {
+        enemy.position = glm::vec4(
+            -center_x * enemy_scale,
+            enemy_y,
+            -center_z * enemy_scale,
+            1.0f
+        );
+        enemy.UpdateDirectionVectors();
+        printf(">>> Enemy pos = (%f, %f, %f)\n",
+           enemy.position.x, enemy.position.y, enemy.position.z);
+    }
+
+
+    //... e o modelo dos cubos (the_cube)...
+    ObjModel cubemodel("../../data/cube.obj");
+    ComputeNormals(&cubemodel);
+    BuildTrianglesAndAddToVirtualScene(&cubemodel);
 
     // Inicializamos algumas caixas/barrils no mundo
     const float box_y = ground_y + 0.25f; // Caixas ficam meio acima do chão
@@ -840,8 +892,7 @@ int main(int argc, char* argv[])
     // Calcula a posição Y correta para os inimigos
     // O cubo vai de -1 a +1, e é escalado por 0.3, então vai de -0.3 a +0.3
     // Para que o fundo do inimigo fique no chão, precisamos posicionar em ground_y + 0.3
-    const float enemy_scale = 0.3f;
-    const float enemy_y = ground_y + enemy_scale; // Posiciona o inimigo para que o fundo fique no chão
+    enemy_y = ground_y + enemy_scale; // Posiciona o inimigo para que o fundo fique no chão
 
     std::vector<glm::vec4> wave_spawn_positions = {
         glm::vec4(player_pos.x + spawn_distance, enemy_y, player_pos.z, 1.0f),           // Direita
@@ -1027,7 +1078,7 @@ int main(int argc, char* argv[])
             for (const auto& obj : g_VirtualScene)
             {
                 // Ignorar os objetos anteriores (chão e cubo)
-                if (obj.first == "the_plane" || obj.first == "the_cube")
+                if (obj.first == "the_plane" || obj.first == "the_cube" || obj.first == "bandit")
                      continue;
     
                 glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
@@ -1058,7 +1109,14 @@ int main(int argc, char* argv[])
             model = model * Matrix_Scale(0.3f, scale_y, 0.3f);
             glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
             glUniform1i(g_object_id_uniform, ENEMY);
-            DrawVirtualObject("the_cube");
+            for (const auto& obj : g_VirtualScene)
+            {
+                // Ignorar os objetos anteriores (chão e cubo)
+                if (obj.first == "the_plane" || obj.first == "the_cube" || obj.first == "cowboy")
+                     continue;
+    
+                DrawVirtualObject(obj.first.c_str());
+            }
         }
 
         // Desenhamos indicadores de direção para o jogador e inimigos

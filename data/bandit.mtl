@@ -1,0 +1,113 @@
+# File produced by Open Asset Import Library (http://www.assimp.sf.net)
+# (assimp v5.0.0)
+
+newmtl c_yem_militia_torso4_c3
+Kd 1 1 1
+Ka 0.1 0.1 0.1
+Ks 0.40000001 0.40000001 0.40000001
+Ke 0 0 0
+Ni 1
+Ns 10
+illum 2
+map_Kd model_bandit/c_yem_militia_torso4_c3.jpg
+
+newmtl Material_27
+Kd 1 1 1
+Ka 0.1 0.1 0.1
+Ks 0.40000001 0.40000001 0.40000001
+Ke 0 0 0
+Ni 1
+Ns 10
+illum 2
+map_Kd model_bandit/Material_27.png
+
+newmtl c_yem_militia_legs_c
+Kd 1 1 1
+Ka 0.1 0.1 0.1
+Ks 0.40000001 0.40000001 0.40000001
+Ke 0 0 0
+Ni 1
+Ns 10
+illum 2
+map_Kd model_bandit/c_yem_militia_legs_c.jpg
+
+newmtl c_yem_militia_torso3_c2
+Kd 1 1 1
+Ka 0.1 0.1 0.1
+Ks 0.40000001 0.40000001 0.40000001
+Ke 0 0 0
+Ni 1
+Ns 10
+illum 2
+map_Kd model_bandit/c_yem_militia_torso3_c2.jpg
+
+newmtl c_yem_militia_arm_c
+Kd 1 1 1
+Ka 0.1 0.1 0.1
+Ks 0.40000001 0.40000001 0.40000001
+Ke 0 0 0
+Ni 1
+Ns 10
+illum 2
+map_Kd model_bandit/c_yem_militia_arm_c.jpg
+
+newmtl edge_color000255
+Kd 0.60000002 0.60000002 0.60000002
+Ka 0.1 0.1 0.1
+Ks 0.40000001 0.40000001 0.40000001
+Ke 0 0 0
+d 1
+Ni 1
+Ns 10
+illum 2
+
+newmtl Wolf3D_Headwear
+Kd 1 1 1
+Ka 0.1 0.1 0.1
+Ks 0.40000001 0.40000001 0.40000001
+Ke 0 0 0
+Ni 1
+Ns 10
+illum 2
+map_Kd model_bandit/Wolf3D_Headwear.png
+
+newmtl edge_color362214255
+Kd 0.60000002 0.60000002 0.60000002
+Ka 0.1 0.1 0.1
+Ks 0.40000001 0.40000001 0.40000001
+Ke 0 0 0
+d 1
+Ni 1
+Ns 10
+illum 2
+
+newmtl Wolf3D_Headwear_0
+Kd 1 1 1
+Ka 0.1 0.1 0.1
+Ks 0.40000001 0.40000001 0.40000001
+Ke 0 0 0
+Ni 1
+Ns 10
+illum 2
+map_Kd model_bandit/Wolf3D_Headwear_0.png
+
+newmtl c_yem_militia_head_c
+Kd 1 1 1
+Ka 0.1 0.1 0.1
+Ks 0.40000001 0.40000001 0.40000001
+Ke 0 0 0
+Ni 1
+Ns 10
+illum 2
+map_Kd model_bandit/c_yem_militia_head_c.jpg
+
+newmtl c_yem_militia_eye_c
+Kd 1 1 1
+Ka 0.1 0.1 0.1
+Ks 0.40000001 0.40000001 0.40000001
+Ke 0 0 0
+Ni 1
+Ns 10
+illum 2
+map_Kd model_bandit/c_yem_militia_eye_c.jpg
+
