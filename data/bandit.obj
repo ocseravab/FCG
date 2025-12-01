@@ -19222,8 +19222,8 @@ vn -0.0074261078 -0.028700789 0.0068713194
 vn 0.0074644722 0.028684141 -0.0068832822
 vn -0.0074644722 -0.028684141 0.0068832822
 
-# Mesh 'ID12' with 2952 faces
-g ID12
+# Mesh 'bandit_ID12' with 2952 faces
+g bandit_ID12
 usemtl Material_27
 f  1/1/1 2/2/2 3/3/3
 f  3/3/4 2/2/5 1/1/6
@@ -22178,8 +22178,8 @@ f  740/895/1780 738/897/1784 741/894/1778
 f  739/896/1781 738/897/1783 741/894/1777
 f  741/894/1778 738/897/1784 739/896/1782
 
-# Mesh 'ID12' with 2216 faces
-g ID12
+# Mesh 'bandit_ID12' with 2216 faces
+g bandit_ID12
 usemtl edge_color000255
 l  3 1
 l  2 1
@@ -24398,8 +24398,8 @@ l  741 740
 l  741 739
 l  738 741
 
-# Mesh 'ID29' with 572 faces
-g ID29
+# Mesh 'bandit_ID29' with 572 faces
+g bandit_ID29
 usemtl Material_27
 f  742/898/1786 743/899/1787 744/900/1788
 f  744/900/1789 743/899/1790 742/898/1791
@@ -24974,8 +24974,8 @@ f  882/1116/2439 885/1112/2427 884/1115/2437
 f  884/1115/2436 882/1116/2438 883/1113/2432
 f  883/1113/2435 882/1116/2439 884/1115/2437
 
-# Mesh 'ID29' with 429 faces
-g ID29
+# Mesh 'bandit_ID29' with 429 faces
+g bandit_ID29
 usemtl edge_color000255
 l  744 742
 l  743 742
@@ -25407,18 +25407,18 @@ l  885 884
 l  882 883
 l  882 884
 
-# Mesh 'ID41' with 1 faces
-g ID41
+# Mesh 'bandit_ID41' with 1 faces
+g bandit_ID41
 usemtl edge_color000255
 l  887 888
 
-# Mesh 'ID45' with 1 faces
-g ID45
+# Mesh 'bandit_ID45' with 1 faces
+g bandit_ID45
 usemtl edge_color000255
 l  889 890
 
-# Mesh 'ID53' with 1952 faces
-g ID53
+# Mesh 'bandit_ID53' with 1952 faces
+g bandit_ID53
 usemtl c_yem_militia_head_c
 f  891/1117/2440 892/1118/2441 893/1119/2442
 f  891/1117/2440 894/1120/2443 892/1118/2441
@@ -27373,8 +27373,8 @@ f  1876/2258/3434 1874/2256/3432 1872/2254/3430
 f  1875/2257/3433 1874/2256/3432 1876/2258/3434
 f  1875/2257/3433 1876/2258/3434 1867/2247/3425
 
-# Mesh 'ID53' with 2931 faces
-g ID53
+# Mesh 'bandit_ID53' with 2931 faces
+g bandit_ID53
 usemtl edge_color000255
 l  891 892
 l  893 892
@@ -30308,8 +30308,8 @@ l  1872 1874
 l  1874 1876
 l  1875 1876
 
-# Mesh 'ID68' with 72 faces
-g ID68
+# Mesh 'bandit_ID68' with 72 faces
+g bandit_ID68
 usemtl c_yem_militia_eye_c
 f  1877/2259/3435 1878/2260/3436 1879/2261/3437
 f  1877/2259/3435 1879/2261/3437 1880/2262/3438
@@ -30384,8 +30384,8 @@ f  1915/2317/3473 1916/2318/3474 1914/2316/3472
 f  1916/2318/3474 1917/2319/3475 1911/2313/3469
 f  1915/2317/3473 1917/2319/3475 1916/2318/3474
 
-# Mesh 'ID68' with 110 faces
-g ID68
+# Mesh 'bandit_ID68' with 110 faces
+g bandit_ID68
 usemtl edge_color000255
 l  1878 1879
 l  1879 1877
@@ -30498,8 +30498,8 @@ l  1915 1917
 l  1915 1916
 l  1917 1916
 
-# Mesh 'ID83' with 72 faces
-g ID83
+# Mesh 'bandit_ID83' with 72 faces
+g bandit_ID83
 usemtl c_yem_militia_eye_c
 f  1918/2320/3476 1919/2321/3477 1920/2322/3478
 f  1919/2321/3477 1921/2323/3479 1920/2322/3478
@@ -30574,8 +30574,8 @@ f  1958/2383/3516 1953/2369/3511 1952/2368/3510
 f  1950/2365/3508 1953/2369/3511 1958/2383/3516
 f  1957/2378/3515 1958/2383/3516 1947/2360/3505
 
-# Mesh 'ID83' with 108 faces
-g ID83
+# Mesh 'bandit_ID83' with 108 faces
+g bandit_ID83
 usemtl edge_color000255
 l  1920 1919
 l  1918 1920
@@ -30686,8 +30686,8 @@ l  1958 1947
 l  1952 1958
 l  1953 1958
 
-# Mesh 'ID93' with 72 faces
-g ID93
+# Mesh 'bandit_ID93' with 72 faces
+g bandit_ID93
 usemtl c_yem_militia_eye_c
 f  1959/2384/3517 1960/2385/3518 1961/2386/3519
 f  1959/2384/3517 1961/2386/3519 1962/2387/3520
@@ -30762,8 +30762,8 @@ f  1995/2437/3553 1998/2440/3556 1999/2441/3557
 f  1995/2437/3553 1999/2441/3557 1996/2438/3554
 f  1996/2438/3554 1999/2441/3557 1997/2439/3555
 
-# Mesh 'ID93' with 108 faces
-g ID93
+# Mesh 'bandit_ID93' with 108 faces
+g bandit_ID93
 usemtl edge_color000255
 l  1960 1961
 l  1961 1959
@@ -30874,8 +30874,8 @@ l  1998 1999
 l  1995 1999
 l  1996 1999
 
-# Mesh 'ID103' with 72 faces
-g ID103
+# Mesh 'bandit_ID103' with 72 faces
+g bandit_ID103
 usemtl c_yem_militia_eye_c
 f  2000/2386/3558 2001/2385/3559 2002/2384/3560
 f  2001/2385/3559 2003/2388/3561 2002/2384/3560
@@ -30950,8 +30950,8 @@ f  2040/2441/3598 2038/2435/3596 2039/2440/3597
 f  2036/2437/3594 2040/2441/3598 2039/2440/3597
 f  2040/2441/3598 2035/2439/3593 2038/2435/3596
 
-# Mesh 'ID103' with 108 faces
-g ID103
+# Mesh 'bandit_ID103' with 108 faces
+g bandit_ID103
 usemtl edge_color000255
 l  2001 2002
 l  2000 2002
@@ -31062,8 +31062,8 @@ l  2040 2036
 l  2038 2040
 l  2039 2040
 
-# Mesh 'ID115' with 608 faces
-g ID115
+# Mesh 'bandit_ID115' with 608 faces
+g bandit_ID115
 usemtl c_yem_militia_torso4_c3
 f  2041/2458/3599 2042/2459/3600 2043/2460/3601
 f  2042/2459/3600 2044/2461/3602 2043/2460/3601
@@ -31674,8 +31674,8 @@ f  2343/2877/3907 2345/2878/3909 2346/2875/3910
 f  2346/2875/3910 2336/2862/3900 2343/2877/3907
 f  2346/2875/3910 2345/2878/3909 2338/2870/3902
 
-# Mesh 'ID115' with 910 faces
-g ID115
+# Mesh 'bandit_ID115' with 910 faces
+g bandit_ID115
 usemtl edge_color000255
 l  2042 2043
 l  2041 2043
@@ -32588,8 +32588,8 @@ l  2340 2344
 l  2345 2346
 l  2343 2346
 
-# Mesh 'ID130' with 608 faces
-g ID130
+# Mesh 'bandit_ID130' with 608 faces
+g bandit_ID130
 usemtl c_yem_militia_torso4_c3
 f  2347/2585/3911 2348/2556/3912 2349/2538/3913
 f  2348/2556/3912 2350/2505/3914 2349/2538/3913
@@ -33200,8 +33200,8 @@ f  2652/2875/4222 2651/2878/4221 2648/2877/4218
 f  2652/2875/4222 2648/2877/4218 2645/2862/4215
 f  2652/2875/4222 2647/2870/4217 2651/2878/4221
 
-# Mesh 'ID130' with 911 faces
-g ID130
+# Mesh 'bandit_ID130' with 911 faces
+g bandit_ID130
 usemtl edge_color000255
 l  2348 2349
 l  2349 2347
@@ -34115,8 +34115,8 @@ l  2647 2651
 l  2652 2648
 l  2652 2651
 
-# Mesh 'ID140' with 116 faces
-g ID140
+# Mesh 'bandit_ID140' with 116 faces
+g bandit_ID140
 usemtl c_yem_militia_torso4_c3
 f  2653/2887/4223 2654/2888/4224 2655/2889/4225
 f  2653/2890/4223 2655/2891/4225 2656/2892/4226
@@ -34235,8 +34235,8 @@ f  2721/2970/4291 2724/2973/4294 2726/2975/4296
 f  2722/2971/4292 2727/2976/4297 2724/2973/4294
 f  2719/2967/4289 2725/2974/4295 2728/2977/4298
 
-# Mesh 'ID140' with 190 faces
-g ID140
+# Mesh 'bandit_ID140' with 190 faces
+g bandit_ID140
 usemtl edge_color000255
 l  2655 2653
 l  2653 2654
@@ -34429,8 +34429,8 @@ l  2722 2727
 l  2725 2728
 l  2728 2719
 
-# Mesh 'ID150' with 20 faces
-g ID150
+# Mesh 'bandit_ID150' with 20 faces
+g bandit_ID150
 usemtl c_yem_militia_legs_c
 f  2729/2978/4299 2730/2979/4300 2731/2980/4301
 f  2731/2980/4301 2732/2981/4302 2729/2978/4299
@@ -34453,8 +34453,8 @@ f  2741/2991/4311 2745/2995/4315 2744/2994/4314
 f  2744/2994/4314 2746/2996/4316 2742/2992/4312
 f  2746/2996/4316 2744/2994/4314 2745/2997/4315
 
-# Mesh 'ID150' with 37 faces
-g ID150
+# Mesh 'bandit_ID150' with 37 faces
+g bandit_ID150
 usemtl edge_color000255
 l  2731 2729
 l  2729 2730
@@ -34494,8 +34494,8 @@ l  2744 2746
 l  2746 2742
 l  2745 2746
 
-# Mesh 'ID165' with 36 faces
-g ID165
+# Mesh 'bandit_ID165' with 36 faces
+g bandit_ID165
 usemtl c_yem_militia_torso3_c2
 f  2747/2998/4317 2748/2999/4318 2749/3000/4319
 f  2748/2999/4318 2747/2998/4317 2750/3001/4320
@@ -34534,8 +34534,8 @@ f  2766/3063/4336 2759/3062/4329 2762/3065/4332
 f  2764/3066/4334 2766/3067/4336 2765/3068/4335
 f  2766/3067/4336 2764/3066/4334 2763/3069/4333
 
-# Mesh 'ID165' with 36 faces
-g ID165
+# Mesh 'bandit_ID165' with 36 faces
+g bandit_ID165
 usemtl edge_color000255
 l  2750 2748
 l  2748 2749
@@ -34574,8 +34574,8 @@ l  2765 2766
 l  2766 2762
 l  2766 2763
 
-# Mesh 'ID180' with 28 faces
-g ID180
+# Mesh 'bandit_ID180' with 28 faces
+g bandit_ID180
 usemtl c_yem_militia_torso3_c2
 f  2767/3070/4337 2768/3071/4338 2769/3072/4339
 f  2768/3071/4338 2767/3070/4337 2770/3073/4340
@@ -34606,8 +34606,8 @@ f  2782/3117/4352 2776/3118/4346 2781/3119/4351
 f  2776/3118/4346 2782/3117/4352 2780/3120/4350
 f  2780/3107/4350 2782/3121/4352 2773/3108/4343
 
-# Mesh 'ID180' with 31 faces
-g ID180
+# Mesh 'bandit_ID180' with 31 faces
+g bandit_ID180
 usemtl edge_color000255
 l  2770 2768
 l  2768 2769
@@ -34641,8 +34641,8 @@ l  2778 2777
 l  2775 2777
 l  2782 2780
 
-# Mesh 'ID190' with 1022 faces
-g ID190
+# Mesh 'bandit_ID190' with 1022 faces
+g bandit_ID190
 usemtl c_yem_militia_torso3_c2
 f  2783/3122/4353 2784/3123/4353 2785/3124/4353
 f  2786/3125/4354 2784/3126/4355 2783/3127/4356
@@ -35667,8 +35667,8 @@ f  3311/4108/4903 3309/4113/4901 3313/4114/4905
 f  3310/4107/4902 3313/4114/4905 3308/4099/4900
 f  3311/4108/4903 3313/4114/4905 3310/4107/4902
 
-# Mesh 'ID190' with 1545 faces
-g ID190
+# Mesh 'bandit_ID190' with 1545 faces
+g bandit_ID190
 usemtl edge_color000255
 l  2785 2783
 l  2783 2784
@@ -37216,8 +37216,8 @@ l  3308 3310
 l  3313 3311
 l  3310 3313
 
-# Mesh 'ID200' with 36 faces
-g ID200
+# Mesh 'bandit_ID200' with 36 faces
+g bandit_ID200
 usemtl c_yem_militia_torso3_c2
 f  3314/4115/4906 3315/4116/4907 3316/4117/4908
 f  3315/4116/4907 3314/4115/4906 3317/4118/4909
@@ -37256,8 +37256,8 @@ f  3329/4180/4921 3331/4179/4923 3325/4182/4917
 f  3328/4183/4920 3333/4184/4925 3332/4185/4924
 f  3333/4184/4925 3328/4183/4920 3331/4186/4923
 
-# Mesh 'ID200' with 36 faces
-g ID200
+# Mesh 'bandit_ID200' with 36 faces
+g bandit_ID200
 usemtl edge_color000255
 l  3315 3316
 l  3316 3314
@@ -37296,8 +37296,8 @@ l  3333 3332
 l  3329 3333
 l  3333 3331
 
-# Mesh 'ID210' with 120 faces
-g ID210
+# Mesh 'bandit_ID210' with 120 faces
+g bandit_ID210
 usemtl c_yem_militia_arm_c
 f  3334/4187/4926 3335/4188/4927 3336/4189/4928
 f  3337/4190/4929 3335/4188/4927 3334/4187/4926
@@ -37420,8 +37420,8 @@ f  3402/4261/4994 3401/4260/4993 3405/4264/4997
 f  3404/4263/4996 3399/4258/4991 3403/4262/4995
 f  3405/4264/4997 3400/4259/4992 3404/4263/4996
 
-# Mesh 'ID210' with 192 faces
-g ID210
+# Mesh 'bandit_ID210' with 192 faces
+g bandit_ID210
 usemtl edge_color000255
 l  3334 3335
 l  3335 3336
@@ -37616,8 +37616,8 @@ l  3405 3402
 l  3403 3404
 l  3404 3405
 
-# Mesh 'ID225' with 120 faces
-g ID225
+# Mesh 'bandit_ID225' with 120 faces
+g bandit_ID225
 usemtl c_yem_militia_arm_c
 f  3406/4188/4998 3407/4189/4999 3408/4191/5000
 f  3409/4197/5001 3406/4188/4998 3408/4191/5000
@@ -37740,8 +37740,8 @@ f  3474/4261/5066 3475/4264/5067 3467/4260/5059
 f  3475/4264/5067 3476/4263/5068 3468/4259/5060
 f  3476/4263/5068 3477/4262/5069 3469/4258/5061
 
-# Mesh 'ID225' with 192 faces
-g ID225
+# Mesh 'bandit_ID225' with 192 faces
+g bandit_ID225
 usemtl edge_color000255
 l  3407 3408
 l  3408 3406
@@ -37936,8 +37936,8 @@ l  3474 3475
 l  3475 3476
 l  3476 3477
 
-# Mesh 'ID235' with 504 faces
-g ID235
+# Mesh 'bandit_ID235' with 504 faces
+g bandit_ID235
 usemtl c_yem_militia_torso4_c3
 f  3478/4265/5070 3479/4266/5071 3480/4267/5072
 f  3481/4268/5073 3480/4267/5072 3479/4266/5071
@@ -38444,8 +38444,8 @@ f  3147/4649/4732 3719/4641/5337 3720/4644/5338
 f  3087/4647/4670 3147/4649/4732 3720/4644/5338
 f  3147/4650/4732 3173/4648/4760 3719/4641/5337
 
-# Mesh 'ID235' with 764 faces
-g ID235
+# Mesh 'bandit_ID235' with 764 faces
+g bandit_ID235
 usemtl edge_color000255
 l  3479 3480
 l  3480 3478
@@ -39212,8 +39212,8 @@ l  3719 3147
 l  3147 3087
 l  3173 3147
 
-# Mesh 'ID245' with 503 faces
-g ID245
+# Mesh 'bandit_ID245' with 503 faces
+g bandit_ID245
 usemtl c_yem_militia_torso4_c3
 f  3721/4549/5339 3722/4528/5340 3723/4544/5341
 f  3722/4528/5340 3721/4549/5339 3724/4499/5342
@@ -39719,8 +39719,8 @@ f  3947/4409/5570 3958/4434/5581 3957/4411/5580
 f  3947/4409/5570 3959/4437/5582 3958/4434/5581
 f  3947/4409/5570 3960/4469/5583 3959/4437/5582
 
-# Mesh 'ID245' with 763 faces
-g ID245
+# Mesh 'bandit_ID245' with 763 faces
+g bandit_ID245
 usemtl edge_color000255
 l  3721 3722
 l  3722 3723
@@ -40486,33 +40486,33 @@ l  3947 3960
 l  3947 3958
 l  3947 3959
 
-# Mesh 'ID255' with 4 faces
-g ID255
+# Mesh 'bandit_ID255' with 4 faces
+g bandit_ID255
 usemtl edge_color000255
 l  3962 3963
 l  3963 3964
 l  3965 3962
 l  3966 3965
 
-# Mesh 'ID259' with 3 faces
-g ID259
+# Mesh 'bandit_ID259' with 3 faces
+g bandit_ID259
 usemtl edge_color000255
 l  3967 3968
 l  3968 3969
 l  3970 3967
 
-# Mesh 'ID263' with 1 faces
-g ID263
+# Mesh 'bandit_ID263' with 1 faces
+g bandit_ID263
 usemtl edge_color000255
 l  2745 3971
 
-# Mesh 'ID267' with 1 faces
-g ID267
+# Mesh 'bandit_ID267' with 1 faces
+g bandit_ID267
 usemtl edge_color000255
 l  3972 3973
 
-# Mesh 'ID275' with 384 faces
-g ID275
+# Mesh 'bandit_ID275' with 384 faces
+g bandit_ID275
 usemtl Wolf3D_Headwear
 f  3974/4669/5585 3975/4670/5586 3976/4671/5587
 f  3976/4671/5588 3975/4670/5589 3974/4669/5590
@@ -40899,8 +40899,8 @@ f  4092/4787/5822 4084/4779/5806 4085/4780/5808
 f  4092/4787/5821 4084/4779/5805 4091/4786/5819
 f  4091/4786/5820 4084/4779/5806 4092/4787/5822
 
-# Mesh 'ID275' with 310 faces
-g ID275
+# Mesh 'bandit_ID275' with 310 faces
+g bandit_ID275
 usemtl edge_color362214255
 l  3975 3974
 l  3975 3976
@@ -41213,8 +41213,8 @@ l  4092 4084
 l  4092 4085
 l  4091 4092
 
-# Mesh 'ID292' with 444 faces
-g ID292
+# Mesh 'bandit_ID292' with 444 faces
+g bandit_ID292
 usemtl Wolf3D_Headwear
 f  4093/4788/5823 4094/4789/5824 4095/4790/5825
 f  4095/4790/5826 4094/4789/5827 4093/4788/5828
@@ -41661,8 +41661,8 @@ f  4210/4922/6092 4207/4919/6086 4209/4921/6090
 f  4210/4922/6091 4208/4920/6087 4211/4923/6093
 f  4211/4923/6094 4208/4920/6088 4210/4922/6092
 
-# Mesh 'ID292' with 357 faces
-g ID292
+# Mesh 'bandit_ID292' with 357 faces
+g bandit_ID292
 usemtl edge_color362214255
 l  4094 4093
 l  4095 4094
@@ -42022,21 +42022,21 @@ l  4210 4209
 l  4208 4211
 l  4211 4210
 
-# Mesh 'ID302' with 2 faces
-g ID302
+# Mesh 'bandit_ID302' with 2 faces
+g bandit_ID302
 usemtl Wolf3D_Headwear
 f  4212/4924/6095 4213/4925/6095 4214/4926/6095
 f  4214/4926/6096 4213/4925/6096 4212/4924/6096
 
-# Mesh 'ID302' with 3 faces
-g ID302
+# Mesh 'bandit_ID302' with 3 faces
+g bandit_ID302
 usemtl edge_color362214255
 l  4212 4213
 l  4213 4214
 l  4214 4212
 
-# Mesh 'ID312' with 642 faces
-g ID312
+# Mesh 'bandit_ID312' with 642 faces
+g bandit_ID312
 usemtl Wolf3D_Headwear
 f  4215/4927/6097 4216/4928/6098 4217/4929/6099
 f  4217/4929/6100 4216/4928/6101 4215/4927/6102
@@ -42681,8 +42681,8 @@ f  4388/5101/6446 4394/5107/6458 4389/5102/6448
 f  4390/5103/6449 4394/5107/6457 4389/5102/6447
 f  4389/5102/6448 4394/5107/6458 4390/5103/6450
 
-# Mesh 'ID312' with 501 faces
-g ID312
+# Mesh 'bandit_ID312' with 501 faces
+g bandit_ID312
 usemtl edge_color362214255
 l  4216 4215
 l  4216 4217
@@ -43186,8 +43186,8 @@ l  4394 4388
 l  4389 4394
 l  4390 4394
 
-# Mesh 'ID322' with 444 faces
-g ID322
+# Mesh 'bandit_ID322' with 444 faces
+g bandit_ID322
 usemtl Wolf3D_Headwear
 f  4112/5108/6459 4395/5109/6460 4396/5110/6461
 f  4396/5110/6462 4395/5109/6463 4112/5108/6464
@@ -43634,8 +43634,8 @@ f  4391/5241/6726 4498/5232/6708 4208/5240/6724
 f  4211/5243/6729 4208/5240/6723 4391/5241/6725
 f  4391/5241/6726 4208/5240/6724 4211/5243/6730
 
-# Mesh 'ID322' with 357 faces
-g ID322
+# Mesh 'bandit_ID322' with 357 faces
+g bandit_ID322
 usemtl edge_color362214255
 l  4112 4395
 l  4396 4395
@@ -43995,42 +43995,42 @@ l  4391 4208
 l  4391 4211
 l  4211 4208
 
-# Mesh 'ID332' with 2 faces
-g ID332
+# Mesh 'bandit_ID332' with 2 faces
+g bandit_ID332
 usemtl Wolf3D_Headwear
 f  4500/5244/6731 4501/5245/6731 4502/5246/6731
 f  4502/5246/6732 4501/5245/6732 4500/5244/6732
 
-# Mesh 'ID332' with 3 faces
-g ID332
+# Mesh 'bandit_ID332' with 3 faces
+g bandit_ID332
 usemtl edge_color362214255
 l  4500 4501
 l  4501 4502
 l  4502 4500
 
-# Mesh 'ID342' with 2 faces
-g ID342
+# Mesh 'bandit_ID342' with 2 faces
+g bandit_ID342
 usemtl Wolf3D_Headwear
 f  4112/5247/6733 4138/5248/6733 4395/5249/6733
 f  4395/5249/6734 4138/5248/6734 4112/5247/6734
 
-# Mesh 'ID342' with 3 faces
-g ID342
+# Mesh 'bandit_ID342' with 3 faces
+g bandit_ID342
 usemtl edge_color362214255
 l  4138 4395
 l  4395 4112
 l  4112 4138
 
-# Mesh 'ID352' with 4 faces
-g ID352
+# Mesh 'bandit_ID352' with 4 faces
+g bandit_ID352
 usemtl Wolf3D_Headwear
 f  4503/5250/6735 4504/5251/6736 4505/5252/6737
 f  4505/5252/6738 4504/5251/6739 4503/5250/6740
 f  4504/5251/6736 4506/5253/6741 4505/5252/6737
 f  4505/5252/6738 4506/5253/6742 4504/5251/6739
 
-# Mesh 'ID352' with 5 faces
-g ID352
+# Mesh 'bandit_ID352' with 5 faces
+g bandit_ID352
 usemtl edge_color362214255
 l  4503 4504
 l  4504 4505
@@ -44038,8 +44038,8 @@ l  4505 4503
 l  4506 4505
 l  4504 4506
 
-# Mesh 'ID362' with 352 faces
-g ID362
+# Mesh 'bandit_ID362' with 352 faces
+g bandit_ID362
 usemtl Wolf3D_Headwear
 f  4507/5254/6743 4508/5255/6744 4509/5256/6745
 f  4509/5256/6746 4508/5255/6747 4507/5254/6748
@@ -44394,8 +44394,8 @@ f  4615/5364/6964 4612/5359/6954 4613/5360/6956
 f  4612/5359/6953 4617/5366/6967 4618/5367/6969
 f  4618/5367/6970 4617/5366/6968 4612/5359/6954
 
-# Mesh 'ID362' with 289 faces
-g ID362
+# Mesh 'bandit_ID362' with 289 faces
+g bandit_ID362
 usemtl edge_color362214255
 l  4508 4507
 l  4509 4508
@@ -44687,8 +44687,8 @@ l  4612 4615
 l  4617 4618
 l  4618 4612
 
-# Mesh 'ID372' with 332 faces
-g ID372
+# Mesh 'bandit_ID372' with 332 faces
+g bandit_ID372
 usemtl Wolf3D_Headwear
 f  4619/5368/6971 4620/5369/6972 4621/5370/6973
 f  4621/5370/6974 4620/5369/6975 4619/5368/6976
@@ -45023,8 +45023,8 @@ f  4711/5463/7168 4588/5471/7184 4593/5470/7182
 f  4587/5472/7185 4713/5466/7173 4588/5471/7183
 f  4588/5471/7184 4713/5466/7174 4587/5472/7186
 
-# Mesh 'ID372' with 273 faces
-g ID372
+# Mesh 'bandit_ID372' with 273 faces
+g bandit_ID372
 usemtl edge_color362214255
 l  4620 4619
 l  4620 4621
@@ -45300,21 +45300,21 @@ l  4587 4586
 l  4593 4588
 l  4588 4587
 
-# Mesh 'ID382' with 2 faces
-g ID382
+# Mesh 'bandit_ID382' with 2 faces
+g bandit_ID382
 usemtl Wolf3D_Headwear
 f  4501/5473/7187 4714/5474/7187 4715/5475/7187
 f  4715/5475/7188 4714/5474/7188 4501/5473/7188
 
-# Mesh 'ID382' with 3 faces
-g ID382
+# Mesh 'bandit_ID382' with 3 faces
+g bandit_ID382
 usemtl edge_color362214255
 l  4501 4714
 l  4714 4715
 l  4715 4501
 
-# Mesh 'ID392' with 642 faces
-g ID392
+# Mesh 'bandit_ID392' with 642 faces
+g bandit_ID392
 usemtl Wolf3D_Headwear
 f  4716/5476/7189 4717/5477/7190 4718/5478/7191
 f  4718/5478/7192 4717/5477/7193 4716/5476/7194
@@ -45959,8 +45959,8 @@ f  4859/5651/7540 4333/5655/7548 4858/5650/7538
 f  4859/5651/7539 4333/5655/7547 4332/5656/7549
 f  4332/5656/7550 4333/5655/7548 4859/5651/7540
 
-# Mesh 'ID392' with 501 faces
-g ID392
+# Mesh 'bandit_ID392' with 501 faces
+g bandit_ID392
 usemtl edge_color362214255
 l  4718 4716
 l  4717 4716
@@ -46464,8 +46464,8 @@ l  4859 4332
 l  4333 4859
 l  4333 4332
 
-# Mesh 'ID402' with 208 faces
-g ID402
+# Mesh 'bandit_ID402' with 208 faces
+g bandit_ID402
 usemtl Wolf3D_Headwear
 f  4046/5657/7551 4860/5658/7552 4861/5659/7553
 f  4861/5659/7554 4860/5658/7555 4046/5657/7556
@@ -46676,8 +46676,8 @@ f  4910/5722/7682 4911/5724/7686 3982/5723/7684
 f  3982/5723/7683 3986/5725/7687 4911/5724/7685
 f  4911/5724/7686 3986/5725/7688 3982/5723/7684
 
-# Mesh 'ID402' with 172 faces
-g ID402
+# Mesh 'bandit_ID402' with 172 faces
+g bandit_ID402
 usemtl edge_color362214255
 l  4860 4046
 l  4861 4860
@@ -46852,8 +46852,8 @@ l  3982 4911
 l  3982 3986
 l  3986 4911
 
-# Mesh 'ID412' with 208 faces
-g ID412
+# Mesh 'bandit_ID412' with 208 faces
+g bandit_ID412
 usemtl Wolf3D_Headwear
 f  4912/5726/7689 4913/5727/7690 4914/5728/7691
 f  4914/5728/7692 4913/5727/7693 4912/5726/7694
@@ -47064,8 +47064,8 @@ f  4970/5793/7824 4969/5791/7820 4897/5792/7822
 f  4897/5792/7821 4970/5793/7823 4090/5794/7825
 f  4090/5794/7826 4970/5793/7824 4897/5792/7822
 
-# Mesh 'ID412' with 172 faces
-g ID412
+# Mesh 'bandit_ID412' with 172 faces
+g bandit_ID412
 usemtl edge_color362214255
 l  4913 4912
 l  4913 4914
@@ -47240,16 +47240,16 @@ l  4970 4897
 l  4090 4897
 l  4970 4090
 
-# Mesh 'ID422' with 4 faces
-g ID422
+# Mesh 'bandit_ID422' with 4 faces
+g bandit_ID422
 usemtl Wolf3D_Headwear
 f  4391/5795/7827 4971/5796/7828 4211/5797/7829
 f  4211/5797/7830 4971/5796/7831 4391/5795/7832
 f  4392/5798/7833 4971/5796/7828 4391/5795/7827
 f  4391/5795/7832 4971/5796/7831 4392/5798/7834
 
-# Mesh 'ID422' with 5 faces
-g ID422
+# Mesh 'bandit_ID422' with 5 faces
+g bandit_ID422
 usemtl edge_color362214255
 l  4391 4971
 l  4971 4211
@@ -47257,16 +47257,16 @@ l  4211 4391
 l  4391 4392
 l  4392 4971
 
-# Mesh 'ID432' with 4 faces
-g ID432
+# Mesh 'bandit_ID432' with 4 faces
+g bandit_ID432
 usemtl Wolf3D_Headwear
 f  4374/5799/7835 4380/5800/7836 4972/5801/7837
 f  4972/5801/7838 4380/5800/7839 4374/5799/7840
 f  4972/5801/7837 4380/5800/7836 4393/5802/7841
 f  4393/5802/7842 4380/5800/7839 4972/5801/7838
 
-# Mesh 'ID432' with 5 faces
-g ID432
+# Mesh 'bandit_ID432' with 5 faces
+g bandit_ID432
 usemtl edge_color362214255
 l  4380 4972
 l  4972 4374
@@ -47274,8 +47274,8 @@ l  4374 4380
 l  4380 4393
 l  4393 4972
 
-# Mesh 'ID442' with 384 faces
-g ID442
+# Mesh 'bandit_ID442' with 384 faces
+g bandit_ID442
 usemtl Wolf3D_Headwear
 f  4450/5803/7843 4973/5804/7844 4443/5805/7845
 f  4443/5805/7846 4973/5804/7847 4450/5803/7848
@@ -47662,8 +47662,8 @@ f  3985/5919/8076 5045/5905/8048 3991/5918/8074
 f  3985/5919/8075 5047/5908/8053 3986/5921/8079
 f  3986/5921/8080 5047/5908/8054 3985/5919/8076
 
-# Mesh 'ID442' with 310 faces
-g ID442
+# Mesh 'bandit_ID442' with 310 faces
+g bandit_ID442
 usemtl edge_color362214255
 l  4973 4450
 l  4443 4973
@@ -47976,16 +47976,16 @@ l  4948 3986
 l  3985 3991
 l  3986 3985
 
-# Mesh 'ID452' with 4 faces
-g ID452
+# Mesh 'bandit_ID452' with 4 faces
+g bandit_ID452
 usemtl Wolf3D_Headwear
 f  4202/5922/8081 5048/5923/8082 4805/5924/8083
 f  4805/5924/8084 5048/5923/8085 4202/5922/8086
 f  5048/5923/8082 4209/5925/8087 4805/5924/8083
 f  4805/5924/8084 4209/5925/8088 5048/5923/8085
 
-# Mesh 'ID452' with 5 faces
-g ID452
+# Mesh 'bandit_ID452' with 5 faces
+g bandit_ID452
 usemtl edge_color362214255
 l  4805 5048
 l  4805 4202
@@ -47993,16 +47993,16 @@ l  4202 5048
 l  5048 4209
 l  4209 4805
 
-# Mesh 'ID462' with 4 faces
-g ID462
+# Mesh 'bandit_ID462' with 4 faces
+g bandit_ID462
 usemtl Wolf3D_Headwear
 f  4488/5926/8089 4374/5927/8090 4972/5928/8091
 f  4972/5928/8092 4374/5927/8093 4488/5926/8094
 f  4393/5929/8095 4488/5926/8089 4972/5928/8091
 f  4972/5928/8092 4488/5926/8094 4393/5929/8096
 
-# Mesh 'ID462' with 5 faces
-g ID462
+# Mesh 'bandit_ID462' with 5 faces
+g bandit_ID462
 usemtl edge_color362214255
 l  4972 4488
 l  4488 4374
@@ -48010,16 +48010,16 @@ l  4374 4972
 l  4972 4393
 l  4393 4488
 
-# Mesh 'ID472' with 4 faces
-g ID472
+# Mesh 'bandit_ID472' with 4 faces
+g bandit_ID472
 usemtl Wolf3D_Headwear
 f  4392/5930/8097 4210/5931/8098 4971/5932/8099
 f  4971/5932/8100 4210/5931/8101 4392/5930/8102
 f  4971/5932/8099 4210/5931/8098 4211/5933/8103
 f  4211/5933/8104 4210/5931/8101 4971/5932/8100
 
-# Mesh 'ID472' with 5 faces
-g ID472
+# Mesh 'bandit_ID472' with 5 faces
+g bandit_ID472
 usemtl edge_color362214255
 l  4971 4210
 l  4971 4392
@@ -48027,16 +48027,16 @@ l  4392 4210
 l  4210 4211
 l  4211 4971
 
-# Mesh 'ID482' with 4 faces
-g ID482
+# Mesh 'bandit_ID482' with 4 faces
+g bandit_ID482
 usemtl Wolf3D_Headwear
 f  4679/5934/8105 4972/5935/8106 4670/5936/8107
 f  4670/5936/8108 4972/5935/8109 4679/5934/8110
 f  4972/5935/8106 4680/5937/8111 4670/5936/8107
 f  4670/5936/8108 4680/5937/8112 4972/5935/8109
 
-# Mesh 'ID482' with 5 faces
-g ID482
+# Mesh 'bandit_ID482' with 5 faces
+g bandit_ID482
 usemtl edge_color362214255
 l  4670 4972
 l  4670 4679
@@ -48044,16 +48044,16 @@ l  4679 4972
 l  4972 4680
 l  4680 4670
 
-# Mesh 'ID492' with 4 faces
-g ID492
+# Mesh 'bandit_ID492' with 4 faces
+g bandit_ID492
 usemtl Wolf3D_Headwear
 f  4615/5938/8113 4612/5939/8114 4971/5940/8115
 f  4971/5940/8116 4612/5939/8117 4615/5938/8118
 f  4971/5940/8115 4612/5939/8114 4618/5941/8119
 f  4618/5941/8120 4612/5939/8117 4971/5940/8116
 
-# Mesh 'ID492' with 5 faces
-g ID492
+# Mesh 'bandit_ID492' with 5 faces
+g bandit_ID492
 usemtl edge_color362214255
 l  4971 4612
 l  4971 4615
@@ -48061,14 +48061,14 @@ l  4615 4612
 l  4612 4618
 l  4618 4971
 
-# Mesh 'ID502' with 2 faces
-g ID502
+# Mesh 'bandit_ID502' with 2 faces
+g bandit_ID502
 usemtl Wolf3D_Headwear_0
 f  4599/5942/8121 5048/5943/8122 4602/5944/8123
 f  4602/5944/8124 5048/5943/8125 4599/5942/8126
 
-# Mesh 'ID502' with 5 faces
-g ID502
+# Mesh 'bandit_ID502' with 5 faces
+g bandit_ID502
 usemtl edge_color362214255
 l  5048/5945 4602/5945
 l  4602/5945 4599/5945
@@ -48076,22 +48076,22 @@ l  4599/5945 5048/5945
 l  4599/5945 4611/5945
 l  4611/5945 4602/5945
 
-# Mesh 'ID502' with 2 faces
-g ID502
+# Mesh 'bandit_ID502' with 2 faces
+g bandit_ID502
 usemtl Wolf3D_Headwear
 f  4599/5946/8127 4611/5947/8127 4602/5948/8123
 f  4602/5948/8124 4611/5947/8128 4599/5946/8128
 
-# Mesh 'ID517' with 4 faces
-g ID517
+# Mesh 'bandit_ID517' with 4 faces
+g bandit_ID517
 usemtl Wolf3D_Headwear
 f  4503/5949/8129 4506/5950/8130 4504/5951/8131
 f  4504/5951/8132 4506/5950/8133 4503/5949/8134
 f  4606/5952/8135 4506/5950/8133 4503/5949/8134
 f  4503/5949/8129 4506/5950/8130 4606/5952/8136
 
-# Mesh 'ID517' with 5 faces
-g ID517
+# Mesh 'bandit_ID517' with 5 faces
+g bandit_ID517
 usemtl edge_color362214255
 l  4503 4506
 l  4506 4504
@@ -48099,16 +48099,16 @@ l  4504 4503
 l  4503 4606
 l  4606 4506
 
-# Mesh 'ID527' with 4 faces
-g ID527
+# Mesh 'bandit_ID527' with 4 faces
+g bandit_ID527
 usemtl Wolf3D_Headwear
 f  4385/5953/8137 4806/5954/8138 4504/5955/8139
 f  4504/5955/8140 4806/5954/8141 4385/5953/8142
 f  4504/5955/8139 4806/5954/8138 4392/5956/8143
 f  4392/5956/8144 4806/5954/8141 4504/5955/8140
 
-# Mesh 'ID527' with 5 faces
-g ID527
+# Mesh 'bandit_ID527' with 5 faces
+g bandit_ID527
 usemtl edge_color362214255
 l  4504 4806
 l  4504 4385
@@ -48116,29 +48116,29 @@ l  4385 4806
 l  4806 4392
 l  4392 4504
 
-# Mesh 'ID537' with 2 faces
-g ID537
+# Mesh 'bandit_ID537' with 2 faces
+g bandit_ID537
 usemtl Wolf3D_Headwear
 f  4120/5957/8145 4138/5958/8145 4112/5959/8145
 f  4112/5959/8146 4138/5958/8146 4120/5957/8146
 
-# Mesh 'ID537' with 3 faces
-g ID537
+# Mesh 'bandit_ID537' with 3 faces
+g bandit_ID537
 usemtl edge_color362214255
 l  4120 4138
 l  4138 4112
 l  4112 4120
 
-# Mesh 'ID547' with 4 faces
-g ID547
+# Mesh 'bandit_ID547' with 4 faces
+g bandit_ID547
 usemtl Wolf3D_Headwear
 f  4596/5960/8147 4599/5961/8147 5048/5962/8148
 f  5048/5962/8149 4599/5961/8150 4596/5960/8150
 f  4596/5960/8151 5048/5962/8152 4602/5963/8152
 f  4602/5963/8153 5048/5962/8153 4596/5960/8154
 
-# Mesh 'ID547' with 5 faces
-g ID547
+# Mesh 'bandit_ID547' with 5 faces
+g bandit_ID547
 usemtl edge_color362214255
 l  4596 5048
 l  4596 4599
@@ -48146,16 +48146,16 @@ l  4599 5048
 l  5048 4602
 l  4602 4596
 
-# Mesh 'ID557' with 4 faces
-g ID557
+# Mesh 'bandit_ID557' with 4 faces
+g bandit_ID557
 usemtl Wolf3D_Headwear
 f  4700/5964/8155 4971/5965/8156 4618/5966/8157
 f  4618/5966/8158 4971/5965/8159 4700/5964/8160
 f  4615/5967/8161 4971/5965/8156 4700/5964/8155
 f  4700/5964/8160 4971/5965/8159 4615/5967/8162
 
-# Mesh 'ID557' with 5 faces
-g ID557
+# Mesh 'bandit_ID557' with 5 faces
+g bandit_ID557
 usemtl edge_color362214255
 l  4700 4971
 l  4971 4618
@@ -48163,16 +48163,16 @@ l  4618 4700
 l  4700 4615
 l  4615 4971
 
-# Mesh 'ID567' with 4 faces
-g ID567
+# Mesh 'bandit_ID567' with 4 faces
+g bandit_ID567
 usemtl Wolf3D_Headwear
 f  4699/5968/8163 4680/5969/8164 4972/5970/8165
 f  4972/5970/8166 4680/5969/8167 4699/5968/8168
 f  4699/5968/8163 4972/5970/8165 4679/5971/8169
 f  4679/5971/8170 4972/5970/8166 4699/5968/8168
 
-# Mesh 'ID567' with 5 faces
-g ID567
+# Mesh 'bandit_ID567' with 5 faces
+g bandit_ID567
 usemtl edge_color362214255
 l  4972 4699
 l  4699 4680
@@ -48180,16 +48180,16 @@ l  4680 4972
 l  4972 4679
 l  4679 4699
 
-# Mesh 'ID577' with 4 faces
-g ID577
+# Mesh 'bandit_ID577' with 4 faces
+g bandit_ID577
 usemtl Wolf3D_Headwear
 f  4504/5972/8171 4392/5973/8172 4383/5974/8173
 f  4383/5974/8174 4392/5973/8175 4504/5972/8176
 f  4385/5975/8177 4504/5972/8171 4383/5974/8173
 f  4383/5974/8174 4504/5972/8176 4385/5975/8178
 
-# Mesh 'ID577' with 5 faces
-g ID577
+# Mesh 'bandit_ID577' with 5 faces
+g bandit_ID577
 usemtl edge_color362214255
 l  4383 4504
 l  4504 4392
@@ -48197,16 +48197,16 @@ l  4392 4383
 l  4383 4385
 l  4385 4504
 
-# Mesh 'ID587' with 4 faces
-g ID587
+# Mesh 'bandit_ID587' with 4 faces
+g bandit_ID587
 usemtl Wolf3D_Headwear
 f  4202/5976/8179 4205/5977/8180 5048/5978/8181
 f  5048/5978/8182 4205/5977/8183 4202/5976/8184
 f  5048/5978/8181 4205/5977/8180 4209/5979/8185
 f  4209/5979/8186 4205/5977/8183 5048/5978/8182
 
-# Mesh 'ID587' with 5 faces
-g ID587
+# Mesh 'bandit_ID587' with 5 faces
+g bandit_ID587
 usemtl edge_color362214255
 l  5048 4205
 l  5048 4202

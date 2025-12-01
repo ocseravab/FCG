@@ -105,7 +105,6 @@ void ComputeNormals(ObjModel* model); // Computa normais de um ObjModel, caso n�
 void LoadShadersFromFiles(); // Carrega os shaders de vértice e fragmento, criando um programa de GPU
 GLuint LoadTextureImage(const char* filename); // Função que carrega imagens de textura
 void DrawVirtualObject(const char* object_name); // Desenha um objeto armazenado em g_VirtualScene
-void DrawDirectionIndicator(glm::vec4 position, glm::vec4 forward, float length, glm::mat4 view, glm::mat4 projection, bool is_player = false); // Desenha indicador de direção
 void DrawCrosshair(GLFWwindow* window); // Desenha crosshair no centro da tela
 void DrawHealthBar(GLFWwindow* window, glm::vec4 world_position, float health, float max_health, glm::mat4 view, glm::mat4 projection); // Desenha barra de vida acima do inimigo
 void DrawHUD(GLFWwindow* window); // Desenha HUD com HP e munição do jogador
@@ -247,7 +246,7 @@ struct Player
         , reload_time(0.0f)
         , reload_time_total(2.0f)     // 2 segundos para recarregar
         , is_reloading(false)
-        , camera_distance(3.5f)
+        , camera_distance(4.0f)
         , camera_height(1.5f)
         , camera_angle_horizontal(0.0f)
         , camera_angle_vertical(0.3f)  // Câmera ligeiramente acima
@@ -393,12 +392,10 @@ struct Enemy
     glm::vec4 forward_vector;    // Vetor direção para frente do inimigo (normalizado)
     glm::vec4 right_vector;      // Vetor direção para direita do inimigo (normalizado)
 
-    // Estados de movimento (monstros não podem correr, apenas caminhar, agachar ou ficar em pé)
+    // Estados de movimento
     enum MovementState {
         IDLE,
         WALKING,
-        CROUCHING,
-        STANDING
     };
     MovementState movement_state;
 
@@ -821,6 +818,18 @@ int main(int argc, char* argv[])
     BuildTrianglesAndAddToVirtualScene(&banditmodel);
     LoadAllBanditTextures(banditmodel);
 
+// === DEBUG: LISTAR TODOS OS MATERIAIS DO BANDIT ===
+printf("\n=== MATERIAIS DO BANDIT ===\n");
+for (const auto& mat : banditmodel.materials)
+{
+    if (!mat.diffuse_texname.empty())
+        printf("Material: %s | Textura: %s\n", mat.name.c_str(), mat.diffuse_texname.c_str());
+    else
+        printf("Material: %s | SEM textura difusa\n", mat.name.c_str());
+}
+printf("============================\n\n");
+
+
     const float enemy_scale = 0.3f;
     g_BanditMinY = std::numeric_limits<float>::max();
 
@@ -891,8 +900,6 @@ int main(int argc, char* argv[])
     
     // Calcula a posição Y correta para os inimigos
     // O cubo vai de -1 a +1, e é escalado por 0.3, então vai de -0.3 a +0.3
-    // Para que o fundo do inimigo fique no chão, precisamos posicionar em ground_y + 0.3
-    enemy_y = ground_y + enemy_scale; // Posiciona o inimigo para que o fundo fique no chão
 
     std::vector<glm::vec4> wave_spawn_positions = {
         glm::vec4(player_pos.x + spawn_distance, enemy_y, player_pos.z, 1.0f),           // Direita
@@ -1077,12 +1084,12 @@ int main(int argc, char* argv[])
             glUniform1i(g_object_id_uniform, PLAYER);
             for (const auto& obj : g_VirtualScene)
             {
-                // Ignorar os objetos anteriores (chão e cubo)
-                if (obj.first == "the_plane" || obj.first == "the_cube" || obj.first == "bandit")
-                     continue;
-    
-                glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
-                DrawVirtualObject(obj.first.c_str());
+                // Desenhar apenas os objetos do cowboy
+                if (obj.first.rfind("cowboy_", 0) == 0)
+                {
+                    glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
+                    DrawVirtualObject(obj.first.c_str());
+                }
             }
         }
 
@@ -1093,42 +1100,21 @@ int main(int argc, char* argv[])
             if (enemy.IsDead())
                 continue;
 
-            // Ajusta a escala baseada no estado (agachado é menor)
             float scale_y = 0.3f;
-            if (enemy.movement_state == Enemy::CROUCHING)
-            {
-                scale_y = 0.2f; // Inimigo agachado é mais baixo
-            }
-            else if (enemy.movement_state == Enemy::STANDING)
-            {
-                scale_y = 0.3f; // Inimigo em pé é normal
-            }
             model = Matrix_Translate(enemy.position.x, enemy.position.y, enemy.position.z);
             model = model * Matrix_Rotate_Y(-enemy.rotation_y);
-            // Escala diferente para Y quando agachado
             model = model * Matrix_Scale(0.3f, scale_y, 0.3f);
             glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
             glUniform1i(g_object_id_uniform, ENEMY);
             for (const auto& obj : g_VirtualScene)
             {
-                // Ignorar os objetos anteriores (chão e cubo)
-                if (obj.first == "the_plane" || obj.first == "the_cube" || obj.first == "cowboy")
-                     continue;
-    
-                DrawVirtualObject(obj.first.c_str());
+                // Desenhar apenas os objetos do inimigo
+                if (obj.first.rfind("bandit_", 0) == 0)
+                {
+                    glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
+                    DrawVirtualObject(obj.first.c_str());
+                }
             }
-        }
-
-        // Desenhamos indicadores de direção para o jogador e inimigos
-        // Indicador do jogador (verde)
-        // DrawDirectionIndicator(g_Player.position, g_Player.forward_vector, 0.8f, view, projection, true);
-
-        // Indicadores dos inimigos (vermelho) - apenas para inimigos vivos
-        for (const auto& enemy : g_Enemies)
-        {
-            if (enemy.IsDead())
-                continue;
-            DrawDirectionIndicator(enemy.position, enemy.forward_vector, 0.8f, view, projection, false);
         }
 
         // Desenha linha amarela do raycast de inimigo se ativada e ainda dentro do tempo
@@ -2047,34 +2033,6 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
     if (key == GLFW_KEY_SPACE && action == GLFW_PRESS)
     {
         // PASS
-    }
-
-    // Test keys for raycast functions
-    if (key == GLFW_KEY_P && action == GLFW_PRESS)
-    {
-        // P key: Test PlayerRaycast (from player center)
-        PlayerRaycast();
-    }
-
-    if (key == GLFW_KEY_E && action == GLFW_PRESS)
-    {
-        // E key: Test EnemyToPlayerRaycast (from first alive enemy to player)
-        if (!g_Enemies.empty())
-        {
-            // Find first alive enemy
-            for (size_t i = 0; i < g_Enemies.size(); ++i)
-            {
-                if (!g_Enemies[i].IsDead())
-                {
-                    EnemyToPlayerRaycast(i);
-                    break;
-                }
-            }
-        }
-        else
-        {
-            printf("No enemies available for EnemyToPlayerRaycast test\n");
-        }
     }
 
     // Tab para mudar a câmera

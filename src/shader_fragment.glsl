@@ -19,8 +19,6 @@ uniform mat4 view;
 uniform mat4 projection;
 
 // Identificador que define qual objeto está sendo desenhado no momento
-#define SPHERE 4
-#define BUNNY  3
 #define PLANE  0
 #define PLAYER 1
 #define ENEMY  2
@@ -35,6 +33,7 @@ uniform vec4 bbox_max;
 uniform sampler2D TextureImage0;
 uniform sampler2D TextureImage1;
 uniform sampler2D TextureImage2;
+uniform int use_texture;
 
 // O valor de saída ("out") de um Fragment Shader é a cor final do fragmento.
 out vec4 color;
@@ -71,50 +70,7 @@ void main()
     float U = 0.0;
     float V = 0.0;
 
-    if ( object_id == SPHERE )
-    {
-        // PREENCHA AQUI as coordenadas de textura da esfera, computadas com
-        // projeção esférica EM COORDENADAS DO MODELO. Utilize como referência
-        // o slides 134-150 do documento Aula_20_Mapeamento_de_Texturas.pdf.
-        // A esfera que define a projeção deve estar centrada na posição
-        // "bbox_center" definida abaixo.
-
-        // Você deve utilizar:
-        //   função 'length( )' : comprimento Euclidiano de um vetor
-        //   função 'atan( , )' : arcotangente. Veja https://en.wikipedia.org/wiki/Atan2.
-        //   função 'asin( )'   : seno inverso.
-        //   constante M_PI
-        //   variável position_model
-
-        vec4 bbox_center = (bbox_min + bbox_max) / 2.0;
-
-        U = 0.0;
-        V = 0.0;
-    }
-    else if ( object_id == BUNNY )
-    {
-        // PREENCHA AQUI as coordenadas de textura do coelho, computadas com
-        // projeção planar XY em COORDENADAS DO MODELO. Utilize como referência
-        // o slides 99-104 do documento Aula_20_Mapeamento_de_Texturas.pdf,
-        // e também use as variáveis min*/max* definidas abaixo para normalizar
-        // as coordenadas de textura U e V dentro do intervalo [0,1]. Para
-        // tanto, veja por exemplo o mapeamento da variável 'p_v' utilizando
-        // 'h' no slides 158-160 do documento Aula_20_Mapeamento_de_Texturas.pdf.
-        // Veja também a Questão 4 do Questionário 4 no Moodle.
-
-        float minx = bbox_min.x;
-        float maxx = bbox_max.x;
-
-        float miny = bbox_min.y;
-        float maxy = bbox_max.y;
-
-        float minz = bbox_min.z;
-        float maxz = bbox_max.z;
-
-        U = 0.0;
-        V = 0.0;
-    }
-    else if (object_id == PLANE)
+    if (object_id == PLANE)
     {
         float TILE = 10.0;
         vec2 uv = fract(texcoords * TILE);
@@ -172,6 +128,29 @@ void main()
         vec3 texcolor = texture(TextureImage0, texcoords).rgb;
         float lambert = max(0, dot(n,l));
         color.rgb = texcolor * (lambert + 0.2);
+    }
+    else if (object_id == ENEMY)
+    {
+        // UV REAL do OBJ
+        vec2 uv = texcoords;
+    
+        // fallback só se REALMENTE não tem UV (raro)
+        if (uv == vec2(0.0, 0.0)) {
+            uv = vec2(0.5, 0.5);
+        }
+    
+        // Se o material TEM textura (C++ definiu use_texture = 1)
+        if (use_texture == 1) {
+            vec3 texcolor = texture(TextureImage0, uv).rgb;
+            float lambert = max(0.0, dot(n, l));
+            color.rgb = texcolor * (lambert + 0.2);
+        }
+        else {
+            // Se o material NÃO tem textura (edge_colorXXXX)
+            vec3 fallback = vec3(0.6, 0.5, 0.4);
+            float lambert = max(0.0, dot(n, l));
+            color.rgb = fallback * (lambert + 0.2);
+        }
     }
     else if (object_id == BOX)
     {
