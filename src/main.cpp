@@ -165,6 +165,16 @@ struct SceneObject
     glm::vec3    bbox_max;
 };
 
+
+// Câmera
+enum CameraMode {
+    CAMERA_THIRD_PERSON,
+    CAMERA_FIRST_PERSON
+};
+
+CameraMode g_CameraMode = CAMERA_THIRD_PERSON; // modo padrão
+
+
 // Estrutura que representa o jogador
 struct Player
 {
@@ -873,7 +883,14 @@ int main(int argc, char* argv[])
         g_Player.UpdatePosition(delta_time);
 
         // Atualizamos os vetores de direção do jogador
-        g_Player.UpdateDirectionVectors();
+        // IMPORTANTE: só no modo terceira pessoa!
+        // No modo primeira pessoa, o forward/right são atualizados no CursorPosCallback()
+        // com base nos ângulos da câmera, incluindo o pitch.
+        // Se chamarmos UpdateDirectionVectors() aqui, perdemos o componente Y do forward.
+        if (g_CameraMode == CAMERA_THIRD_PERSON)
+        {
+            g_Player.UpdateDirectionVectors();
+        }
 
         // Atualizamos o cooldown de tiro
         if (g_Player.shoot_cooldown > 0.0f)
@@ -908,10 +925,21 @@ int main(int argc, char* argv[])
         // Atualizamos o status das waves (verifica se estão completas)
         UpdateWaves();
 
-        // Câmera em terceira pessoa seguindo o jogador
-        // A câmera é posicionada usando o sistema de terceira pessoa do jogador
-        glm::vec4 camera_position_c  = g_Player.GetThirdPersonCameraPosition(); // Posição da câmera em terceira pessoa
-        glm::vec4 camera_lookat_l    = g_Player.GetCameraLookAt();
+
+        glm::vec4 camera_position_c;
+        glm::vec4 camera_lookat_l;
+        
+        if (g_CameraMode == CAMERA_THIRD_PERSON)
+        {
+            camera_position_c = g_Player.GetThirdPersonCameraPosition();
+            camera_lookat_l   = g_Player.GetCameraLookAt();
+        }
+        else
+        {
+            camera_position_c = g_Player.position + glm::vec4(0.0f, 1.5f, 0.0f, 0.0f); // na cabeça
+            camera_lookat_l   = camera_position_c + g_Player.forward_vector; // segue a direção do olhar
+        }
+
         glm::vec4 camera_view_vector = camera_lookat_l - camera_position_c; // Vetor "view", sentido para onde a câmera está virada
         glm::vec4 camera_up_vector   = glm::vec4(0.0f, 1.0f, 0.0f, 0.0f); // Vetor "up" fixado para apontar para o "céu" (eito Y global)
 
@@ -1729,8 +1757,24 @@ void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
         if (g_Player.magazine_ammo > 0 && g_Player.shoot_cooldown <= 0.0f && !g_Player.is_reloading)
         {
             // Realiza raycast do centro da tela
-            glm::vec4 camera_position = g_Player.GetThirdPersonCameraPosition();
-            glm::vec4 camera_lookat = g_Player.GetCameraLookAt();
+
+            glm::vec4 camera_position;
+            glm::vec4 camera_lookat;
+
+            if (g_CameraMode == CAMERA_THIRD_PERSON)
+            {
+                camera_position = g_Player.GetThirdPersonCameraPosition();
+                camera_lookat   = g_Player.GetCameraLookAt();
+            }
+            else // FIRST PERSON
+            {
+                // posição = cabeça do jogador
+                camera_position = g_Player.position + glm::vec4(0.0f, 1.5f, 0.0f, 0.0f);
+
+                // olha para onde o jogador está olhando
+                camera_lookat = camera_position + g_Player.forward_vector;
+            }
+
             glm::vec4 camera_view_vector = camera_lookat - camera_position;
 
             // Normaliza o vetor de direção da câmera
@@ -1802,50 +1846,44 @@ void CursorPosCallback(GLFWwindow* window, double xpos, double ypos)
     // Deslocamento do cursor do mouse em x e y de coordenadas de tela!
     float dx = xpos - g_LastCursorPosX;
     float dy = ypos - g_LastCursorPosY;
-
-    // Atualizamos os ângulos da câmera em terceira pessoa do jogador
-    // Sensibilidade reduzida da câmera
-    float camera_sensitivity = 0.003f;
-    g_Player.camera_angle_horizontal -= camera_sensitivity * dx;
-    g_Player.camera_angle_vertical   += camera_sensitivity * dy;
-
-    // Limita o ângulo vertical para evitar que a câmera vá muito acima ou abaixo
-    float vmax = 3.141592f/3.0f;  // Limite superior (câmera não vai muito acima)
-    float vmin = -0.15; // Limite inferior (câmera não vai muito abaixo)
-
-    if (g_Player.camera_angle_vertical > vmax)
-        g_Player.camera_angle_vertical = vmax;
-
-    if (g_Player.camera_angle_vertical < vmin)
-        g_Player.camera_angle_vertical = vmin;
-
-    // Atualizamos as variáveis globais para armazenar a posição atual do
-    // cursor como sendo a última posição conhecida do cursor.
+    
     g_LastCursorPosX = xpos;
     g_LastCursorPosY = ypos;
 
-    if (g_RightMouseButtonPressed)
+    if (g_CameraMode == CAMERA_THIRD_PERSON)
     {
-        // Deslocamento do cursor do mouse em x e y de coordenadas de tela!
-        float dx = xpos - g_LastCursorPosX;
-        float dy = ypos - g_LastCursorPosY;
+        float camera_sensitivity = 0.003f;
+        g_Player.camera_angle_horizontal -= dx * 0.002f;
+        g_Player.camera_angle_vertical   += dy * 0.002f;
 
-        // Atualizamos as variáveis globais para armazenar a posição atual do
-        // cursor como sendo a última posição conhecida do cursor.
-        g_LastCursorPosX = xpos;
-        g_LastCursorPosY = ypos;
+        float vmax = 3.141592f/3.0f;
+        float vmin = -0.15;
+
+        g_Player.camera_angle_vertical = glm::clamp(g_Player.camera_angle_vertical, vmin, vmax);
     }
 
-    if (g_MiddleMouseButtonPressed)
+    if (g_CameraMode == CAMERA_FIRST_PERSON)  
     {
-        // Deslocamento do cursor do mouse em x e y de coordenadas de tela!
-        float dx = xpos - g_LastCursorPosX;
-        float dy = ypos - g_LastCursorPosY;
+        float sensitivity = 0.002f;
+        g_Player.camera_angle_horizontal -= dx * 0.002f;
+        g_Player.camera_angle_vertical   -= dy * 0.002f;
 
-        // Atualizamos as variáveis globais para armazenar a posição atual do
-        // cursor como sendo a última posição conhecida do cursor.
-        g_LastCursorPosX = xpos;
-        g_LastCursorPosY = ypos;
+        // limitar o ângulo vertical para não virar de cabeça pra baixo
+        float limit = glm::radians(89.0f);
+        g_Player.camera_angle_vertical = glm::clamp(g_Player.camera_angle_vertical, -limit, limit);
+
+        // recalcular forward_vector
+        g_Player.forward_vector = glm::vec4(
+            cos(g_Player.camera_angle_vertical) * sin(g_Player.camera_angle_horizontal),
+            sin(g_Player.camera_angle_vertical),
+            cos(g_Player.camera_angle_vertical) * cos(g_Player.camera_angle_horizontal),
+            0.0f
+        );
+
+        g_Player.right_vector = glm::vec4(
+            cos(g_Player.camera_angle_horizontal), 0.0f,
+            -sin(g_Player.camera_angle_horizontal), 0.0f
+        );
     }
 }
 
@@ -1936,6 +1974,16 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
         {
             printf("No enemies available for EnemyToPlayerRaycast test\n");
         }
+    }
+
+    // Tab para mudar a câmera
+    if (key == GLFW_KEY_TAB && action == GLFW_PRESS) {
+        if (g_CameraMode == CAMERA_THIRD_PERSON)
+            g_CameraMode = CAMERA_FIRST_PERSON;
+        else
+            g_CameraMode = CAMERA_THIRD_PERSON;
+        printf("Camera mode switched! Now: %s\n",
+               g_CameraMode == CAMERA_FIRST_PERSON ? "FIRST PERSON" : "THIRD PERSON");
     }
 
     // Controles WASD para movimento do jogador
