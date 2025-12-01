@@ -238,7 +238,7 @@ struct Player
         , reload_time_total(2.0f)     // 2 segundos para recarregar
         , is_reloading(false)
         , camera_distance(3.0f)
-        , camera_height(0.5f)
+        , camera_height(1.5f)
         , camera_angle_horizontal(0.0f)
         , camera_angle_vertical(0.3f)  // Câmera ligeiramente acima
     {
@@ -1810,8 +1810,8 @@ void CursorPosCallback(GLFWwindow* window, double xpos, double ypos)
     g_Player.camera_angle_vertical   += camera_sensitivity * dy;
 
     // Limita o ângulo vertical para evitar que a câmera vá muito acima ou abaixo
-    float vmax = 3.141592f/2.5f;  // Limite superior (câmera não vai muito acima)
-    float vmin = -3.141592f/3.0f; // Limite inferior (câmera não vai muito abaixo)
+    float vmax = 3.141592f/3.0f;  // Limite superior (câmera não vai muito acima)
+    float vmin = -0.15; // Limite inferior (câmera não vai muito abaixo)
 
     if (g_Player.camera_angle_vertical > vmax)
         g_Player.camera_angle_vertical = vmax;
