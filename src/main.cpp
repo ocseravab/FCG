@@ -20,6 +20,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <algorithm>
+#include <random>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
@@ -108,6 +109,7 @@ void DrawVirtualObject(const char* object_name); // Desenha um objeto armazenado
 void DrawDirectionIndicator(glm::vec4 position, glm::vec4 forward, float length, glm::mat4 view, glm::mat4 projection, bool is_player = false); // Desenha indicador de direção
 void DrawEnemyHitbox(glm::vec4 position, float radius, glm::mat4 view, glm::mat4 projection); // Desenha hitbox do inimigo (esfera wireframe)
 void DrawCrosshair(GLFWwindow* window); // Desenha crosshair no centro da tela
+void DrawBezierSpline(glm::vec4 p0, glm::vec4 p1, glm::vec4 p2, glm::vec4 p3, glm::mat4 view, glm::mat4 projection); // Desenha spline Bezier
 void DrawHealthBar(GLFWwindow* window, glm::vec4 world_position, float health, float max_health, glm::mat4 view, glm::mat4 projection); // Desenha barra de vida acima do inimigo
 void DrawHUD(GLFWwindow* window); // Desenha HUD com HP e munição do jogador
 void CameraRaycast(glm::vec4 camera_position, glm::vec4 ray_direction); // Realiza raycast e verifica interseções
@@ -175,6 +177,12 @@ enum CameraMode {
 
 CameraMode g_CameraMode = CAMERA_THIRD_PERSON; // modo padrão
 float g_FirstPersonFOV = 3.141592f / 3.0f;  // 60 graus
+
+// Limites do mapa (baseado no plane.obj: -25 a 25 em X e Z)
+const float MAP_MIN_X = -25.0f;
+const float MAP_MAX_X = 25.0f;
+const float MAP_MIN_Z = -25.0f;
+const float MAP_MAX_Z = 25.0f;
 
 // Estrutura que representa o jogador
 struct Player
@@ -409,6 +417,99 @@ struct Enemy
     float max_health;            // Vida máxima
     float health;                // Vida do inimigo (0.0 a 100.0)
 
+    // Bezier curve movement
+    glm::vec4 destination;       // Destino final da curva Bezier
+    glm::vec4 bezier_p1;         // Primeiro ponto de controle da curva Bezier
+    glm::vec4 bezier_p2;         // Segundo ponto de controle da curva Bezier
+    float bezier_progress;       // Progresso ao longo da curva (0.0 a 1.0)
+    float bezier_total_distance; // Distância total da curva (para calcular velocidade)
+
+    // Função auxiliar para calcular posição em uma curva Bezier cúbica
+    // t deve estar entre 0.0 e 1.0
+    glm::vec4 CalculateBezierPosition(glm::vec4 p0, glm::vec4 p1, glm::vec4 p2, glm::vec4 p3, float t)
+    {
+        float u = 1.0f - t;
+        float tt = t * t;
+        float uu = u * u;
+        float uuu = uu * u;
+        float ttt = tt * t;
+
+        glm::vec4 result = uuu * p0;                    // (1-t)^3 * P0
+        result += 3.0f * uu * t * p1;                   // 3(1-t)^2 * t * P1
+        result += 3.0f * u * tt * p2;                  // 3(1-t) * t^2 * P2
+        result += ttt * p3;                             // t^3 * P3
+
+        return result;
+    }
+
+    // Gera um novo destino aleatório e calcula os pontos de controle da curva Bezier
+    void GenerateNewBezierPath()
+    {
+        // Usa a posição atual como ponto de partida (não sempre o spawn)
+        glm::vec4 start_pos = position;
+
+        // Gera um destino aleatório em um raio de 10 a 20 unidades da posição atual
+        static std::random_device rd;
+        static std::mt19937 gen(rd());
+        std::uniform_real_distribution<float> angle_dist(0.0f, 2.0f * M_PI);
+        std::uniform_real_distribution<float> distance_dist(10.0f, 20.0f);
+
+        float angle = angle_dist(gen);
+        float distance = distance_dist(gen);
+
+        destination = glm::vec4(
+            start_pos.x + distance * cos(angle),
+            start_pos.y,
+            start_pos.z + distance * sin(angle),
+            1.0f
+        );
+
+        // Garante que o destino está dentro dos limites do mapa
+        destination.x = glm::clamp(destination.x, MAP_MIN_X, MAP_MAX_X);
+        destination.z = glm::clamp(destination.z, MAP_MIN_Z, MAP_MAX_Z);
+
+        // Calcula pontos de controle para criar uma curva suave
+        // Os pontos de controle são posicionados perpendicularmente à direção do movimento
+        glm::vec4 direction = destination - start_pos;
+        float dir_length = sqrt(direction.x * direction.x + direction.z * direction.z);
+        
+        if (dir_length > 0.001f)
+        {
+            direction.x /= dir_length;
+            direction.z /= dir_length;
+        }
+
+        // Cria um vetor perpendicular (rotação de 90 graus no plano XZ)
+        glm::vec4 perpendicular = glm::vec4(-direction.z, 0.0f, direction.x, 0.0f);
+
+        // Primeiro ponto de controle: 1/3 do caminho, desviando para um lado
+        float control_offset = dir_length * 0.3f;
+        bezier_p1 = start_pos + direction * (dir_length * 0.33f) + perpendicular * control_offset;
+        bezier_p1.y = start_pos.y;
+        // Garante que os pontos de controle estão dentro dos limites
+        bezier_p1.x = glm::clamp(bezier_p1.x, MAP_MIN_X, MAP_MAX_X);
+        bezier_p1.z = glm::clamp(bezier_p1.z, MAP_MIN_Z, MAP_MAX_Z);
+
+        // Segundo ponto de controle: 2/3 do caminho, desviando para o outro lado
+        bezier_p2 = start_pos + direction * (dir_length * 0.67f) - perpendicular * control_offset;
+        bezier_p2.y = start_pos.y;
+        // Garante que os pontos de controle estão dentro dos limites
+        bezier_p2.x = glm::clamp(bezier_p2.x, MAP_MIN_X, MAP_MAX_X);
+        bezier_p2.z = glm::clamp(bezier_p2.z, MAP_MIN_Z, MAP_MAX_Z);
+
+        // Calcula a distância aproximada da curva (soma de segmentos)
+        float dist1 = sqrt(pow(bezier_p1.x - start_pos.x, 2) + pow(bezier_p1.z - start_pos.z, 2));
+        float dist2 = sqrt(pow(bezier_p2.x - bezier_p1.x, 2) + pow(bezier_p2.z - bezier_p1.z, 2));
+        float dist3 = sqrt(pow(destination.x - bezier_p2.x, 2) + pow(destination.z - bezier_p2.z, 2));
+        bezier_total_distance = dist1 + dist2 + dist3;
+
+        // Atualiza spawn_position para a posição atual (para a próxima curva começar daqui)
+        spawn_position = start_pos;
+
+        // Reseta o progresso
+        bezier_progress = 0.0f;
+    }
+
     // Construtor
     Enemy(glm::vec4 spawn_pos, int wave = -1)
         : position(spawn_pos)
@@ -422,7 +523,14 @@ struct Enemy
         , max_health(100.0f)
         , health(max_health)
         , wave_id(wave)
+        , destination(spawn_pos)
+        , bezier_p1(spawn_pos)
+        , bezier_p2(spawn_pos)
+        , bezier_progress(0.0f)
+        , bezier_total_distance(0.0f)
     {
+        // Gera o caminho Bezier inicial
+        GenerateNewBezierPath();
     }
 
     // Atualiza os vetores de direção baseado na rotação Y
@@ -442,22 +550,91 @@ struct Enemy
         );
     }
 
-    // Atualiza o estado de movimento (inimigos ficam parados por enquanto)
+    // Atualiza o estado de movimento
     void UpdateMovementState()
     {
-        // Inimigos ficam em estado IDLE por padrão
-        movement_state = IDLE;
-        current_speed = 0.0f;
+        // Inimigos estão sempre caminhando ao longo da curva Bezier
+        movement_state = WALKING;
+        current_speed = walk_speed;
     }
 
-    // Atualiza a posição do inimigo (inimigos não se movem por enquanto)
+    // Atualiza a posição do inimigo ao longo da curva Bezier
     void UpdatePosition(float delta_time)
     {
         // Atualiza o estado de movimento
         UpdateMovementState();
 
-        // Inimigos permanecem na posição de spawn
-        // (sem movimento por enquanto)
+        // Se chegou ao destino, gera um novo caminho
+        if (bezier_progress >= 1.0f)
+        {
+            GenerateNewBezierPath();
+        }
+
+        // Calcula a distância a percorrer neste frame
+        float distance_to_move = current_speed * delta_time;
+
+        // Calcula quanto progresso isso representa na curva
+        if (bezier_total_distance > 0.001f)
+        {
+            float progress_increment = distance_to_move / bezier_total_distance;
+            bezier_progress += progress_increment;
+
+            // Limita o progresso a 1.0
+            if (bezier_progress > 1.0f)
+                bezier_progress = 1.0f;
+        }
+
+        // Calcula a nova posição na curva Bezier
+        // spawn_position é atualizado quando geramos um novo caminho, então sempre usamos ele como início
+        glm::vec4 new_position = CalculateBezierPosition(
+            spawn_position,
+            bezier_p1,
+            bezier_p2,
+            destination,
+            bezier_progress
+        );
+
+        // Garante que a posição está dentro dos limites do mapa
+        new_position.x = glm::clamp(new_position.x, MAP_MIN_X, MAP_MAX_X);
+        new_position.z = glm::clamp(new_position.z, MAP_MIN_Z, MAP_MAX_Z);
+
+        // Atualiza a posição
+        position = new_position;
+
+        // Atualiza a rotação para olhar na direção do movimento
+        if (bezier_progress < 1.0f)
+        {
+            // Calcula a direção do movimento (posição atual vs próxima posição)
+            float next_t = bezier_progress + 0.01f;
+            if (next_t > 1.0f)
+                next_t = 1.0f;
+
+            glm::vec4 next_position = CalculateBezierPosition(
+                spawn_position,
+                bezier_p1,
+                bezier_p2,
+                destination,
+                next_t
+            );
+
+            glm::vec4 movement_direction = next_position - position;
+            float dir_length = sqrt(movement_direction.x * movement_direction.x + movement_direction.z * movement_direction.z);
+
+            if (dir_length > 0.001f)
+            {
+                rotation_y = atan2(movement_direction.x, -movement_direction.z);
+            }
+        }
+        else
+        {
+            // Quando chega ao destino, olha na direção do destino
+            glm::vec4 to_destination = destination - position;
+            float dir_length = sqrt(to_destination.x * to_destination.x + to_destination.z * to_destination.z);
+            if (dir_length > 0.001f)
+            {
+                rotation_y = atan2(to_destination.x, -to_destination.z);
+            }
+        }
     }
 
     // Aplica dano ao inimigo
@@ -1178,6 +1355,15 @@ printf("============================\n\n");
                 // Desativa o desenho após 3 segundos
                 g_DrawEnemyRaycast = false;
             }
+        }
+
+        // Desenha splines Bezier para cada inimigo
+        for (const auto& enemy : g_Enemies)
+        {
+            if (enemy.IsDead())
+                continue;
+            
+            DrawBezierSpline(enemy.spawn_position, enemy.bezier_p1, enemy.bezier_p2, enemy.destination, view, projection);
         }
 
         // Desenhamos as barras de vida dos inimigos (apenas para inimigos vivos)
@@ -3206,6 +3392,78 @@ void DrawRaycastLine(glm::vec4 start, glm::vec4 end, glm::mat4 view, glm::mat4 p
     // Desenha a linha
     glLineWidth(3.0f);
     glDrawArrays(GL_LINES, 0, 2);
+    glLineWidth(1.0f);
+
+    // Reabilita culling
+    glEnable(GL_CULL_FACE);
+
+    glBindVertexArray(0);
+}
+
+// Desenha uma spline Bezier cúbica usando múltiplos segmentos de linha
+void DrawBezierSpline(glm::vec4 p0, glm::vec4 p1, glm::vec4 p2, glm::vec4 p3, glm::mat4 view, glm::mat4 projection)
+{
+    // Cria VAO e VBO se ainda não existirem
+    if (g_LineVAO == 0)
+    {
+        glGenVertexArrays(1, &g_LineVAO);
+        glGenBuffers(1, &g_LineVBO);
+    }
+
+    // Número de segmentos para desenhar a curva (mais segmentos = curva mais suave)
+    const int num_segments = 50;
+    std::vector<float> line_vertices;
+    line_vertices.reserve((num_segments + 1) * 4); // 4 floats por vértice (x, y, z, w)
+
+    // Calcula pontos ao longo da curva Bezier
+    for (int i = 0; i <= num_segments; ++i)
+    {
+        float t = static_cast<float>(i) / static_cast<float>(num_segments);
+        
+        // Fórmula da curva Bezier cúbica: B(t) = (1-t)³P₀ + 3(1-t)²tP₁ + 3(1-t)t²P₂ + t³P₃
+        float u = 1.0f - t;
+        float tt = t * t;
+        float uu = u * u;
+        float uuu = uu * u;
+        float ttt = tt * t;
+
+        glm::vec4 point = uuu * p0;                    // (1-t)^3 * P0
+        point += 3.0f * uu * t * p1;                   // 3(1-t)^2 * t * P1
+        point += 3.0f * u * tt * p2;                   // 3(1-t) * t^2 * P2
+        point += ttt * p3;                              // t^3 * P3
+
+        line_vertices.push_back(point.x);
+        line_vertices.push_back(point.y);
+        line_vertices.push_back(point.z);
+        line_vertices.push_back(1.0f);
+    }
+
+    // Configura o VAO
+    glBindVertexArray(g_LineVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, g_LineVBO);
+    glBufferData(GL_ARRAY_BUFFER, line_vertices.size() * sizeof(float), line_vertices.data(), GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(0);
+
+    // Usa o shader principal
+    glUseProgram(g_GpuProgramID);
+
+    // Matriz de modelagem identidade (linha já está em coordenadas do mundo)
+    glm::mat4 model = Matrix_Identity();
+    glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
+    glUniformMatrix4fv(g_view_uniform, 1, GL_FALSE, glm::value_ptr(view));
+    glUniformMatrix4fv(g_projection_uniform, 1, GL_FALSE, glm::value_ptr(projection));
+
+    // Define cor roxa/magenta para a spline Bezier
+    #define BEZIER_SPLINE 13
+    glUniform1i(g_object_id_uniform, BEZIER_SPLINE);
+
+    // Desabilita culling para linhas
+    glDisable(GL_CULL_FACE);
+
+    // Desenha a linha como uma linha em tira (GL_LINE_STRIP)
+    glLineWidth(2.0f);
+    glDrawArrays(GL_LINE_STRIP, 0, num_segments + 1);
     glLineWidth(1.0f);
 
     // Reabilita culling
