@@ -109,6 +109,7 @@ void DrawVirtualObject(const char* object_name); // Desenha um objeto armazenado
 void DrawDirectionIndicator(glm::vec4 position, glm::vec4 forward, float length, glm::mat4 view, glm::mat4 projection, bool is_player = false); // Desenha indicador de direção
 void DrawEnemyHitbox(glm::vec4 position, float radius, glm::mat4 view, glm::mat4 projection); // Desenha hitbox do inimigo (esfera wireframe)
 void DrawPlayerHitbox(glm::vec4 position, float radius, glm::mat4 view, glm::mat4 projection); // Desenha hitbox do jogador (esfera wireframe)
+bool CheckPlayerBoxCollision(const glm::vec4& player_position); // Verifica colisão entre jogador e caixas
 void DrawCrosshair(GLFWwindow* window); // Desenha crosshair no centro da tela
 void DrawBezierSpline(glm::vec4 p0, glm::vec4 p1, glm::vec4 p2, glm::vec4 p3, glm::mat4 view, glm::mat4 projection); // Desenha spline Bezier
 void DrawHealthBar(GLFWwindow* window, glm::vec4 world_position, float health, float max_health, glm::mat4 view, glm::mat4 projection); // Desenha barra de vida acima do inimigo
@@ -441,8 +442,19 @@ struct Player
             movement_direction.z /= movement_length;
 
             float move_distance = current_speed * delta_time;
-            position.x += movement_direction.x * move_distance;
-            position.z += movement_direction.z * move_distance;
+            
+            // Calcula a nova posição
+            glm::vec4 new_position = position;
+            new_position.x += movement_direction.x * move_distance;
+            new_position.z += movement_direction.z * move_distance;
+            
+            // Verifica colisão com caixas antes de atualizar a posição
+            if (!CheckPlayerBoxCollision(new_position))
+            {
+                // Sem colisão, atualiza a posição
+                position = new_position;
+            }
+            // Se houver colisão, a posição não é atualizada (jogador não se move)
         }
     }
 };
@@ -825,6 +837,62 @@ const float g_WaveClearedDelay = 3.0f; // Tempo em segundos antes de iniciar pr�
 // Lista de caixas/barrils no mundo
 std::vector<Box> g_Boxes;
 
+// Função auxiliar para verificar colisão entre jogador (esfera) e caixa (AABB)
+// Retorna true se houver colisão
+bool CheckPlayerBoxCollision(const glm::vec4& player_position)
+{
+    const float player_radius = 0.3f; // Raio da hitbox do jogador
+    const float player_scale = 0.3f;
+    
+    // Calcula o centro da hitbox do jogador em world space
+    glm::vec3 player_center = glm::vec3(
+        player_position.x + g_Player.model_center.x * player_scale,
+        player_position.y + g_Player.model_center.y * player_scale,
+        player_position.z + g_Player.model_center.z * player_scale
+    );
+    
+    // Verifica colisão com cada caixa
+    for (const auto& box : g_Boxes)
+    {
+        // Calcula o AABB da caixa considerando a rotação
+        // Para simplificar, usamos a maior extensão horizontal (diagonal do quadrado)
+        float max_horizontal_extent = sqrt(box.scale.x * box.scale.x + box.scale.z * box.scale.z);
+        
+        // AABB da caixa (axis-aligned, aproximação conservadora)
+        glm::vec3 box_min = glm::vec3(
+            box.position.x - max_horizontal_extent,
+            box.position.y - box.scale.y,
+            box.position.z - max_horizontal_extent
+        );
+        glm::vec3 box_max = glm::vec3(
+            box.position.x + max_horizontal_extent,
+            box.position.y + box.scale.y,
+            box.position.z + max_horizontal_extent
+        );
+        
+        // Encontra o ponto mais próximo da esfera ao AABB
+        glm::vec3 closest_point = glm::vec3(
+            glm::clamp(player_center.x, box_min.x, box_max.x),
+            glm::clamp(player_center.y, box_min.y, box_max.y),
+            glm::clamp(player_center.z, box_min.z, box_max.z)
+        );
+        
+        // Calcula a distância do centro da esfera ao ponto mais próximo
+        float distance_sq = 
+            (player_center.x - closest_point.x) * (player_center.x - closest_point.x) +
+            (player_center.y - closest_point.y) * (player_center.y - closest_point.y) +
+            (player_center.z - closest_point.z) * (player_center.z - closest_point.z);
+        
+        // Se a distância é menor que o raio, há colisão
+        if (distance_sq < player_radius * player_radius)
+        {
+            return true; // Colisão detectada
+        }
+    }
+    
+    return false; // Sem colisão
+}
+
 // Variáveis para visualização de raycast de inimigo
 bool g_DrawEnemyRaycast = false;
 glm::vec4 g_EnemyRaycastStart;
@@ -1114,8 +1182,8 @@ printf("============================\n\n");
     // Inicializamos caixas/barrils espalhadas por todo o mapa
     const float box_y = ground_y + 0.25f; // Caixas ficam meio acima do chão
     
-    // Espaçamento entre caixas (ajustável)
-    const float box_spacing = 4.0f; // Distância entre caixas
+    // Espaçamento entre caixas (ajustável) - meio termo entre muito espalhado e muito denso
+    const float box_spacing = 5.5f; // Distância entre caixas (meio termo: 4.0f original, 8.0f muito espalhado)
     const float box_margin = 2.0f; // Margem das bordas do mapa
     
     // Gera caixas em uma grade cobrindo todo o mapa
@@ -1134,8 +1202,8 @@ printf("============================\n\n");
             float scale_variation = 0.3f + (rand() % 100) / 100.0f * 0.4f; // 0.3 a 0.7
             float height_variation = 0.3f + (rand() % 100) / 100.0f * 0.5f; // 0.3 a 0.8
             
-            // Aplica variação com probabilidade (não todas as posições têm caixa)
-            if ((rand() % 100) < 80) // 80% de chance de ter uma caixa nesta posição
+            // Aplica variação com probabilidade média (meio termo entre 40% e 80%)
+            if ((rand() % 100) < 65) // 65% de chance de ter uma caixa nesta posição
             {
                 g_Boxes.push_back(Box(
                     glm::vec4(x + offset_x, box_y, z + offset_z, 1.0f),
