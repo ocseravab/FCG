@@ -3791,6 +3791,9 @@ void EnemyToPlayerRaycast(size_t enemy_index)
     // Posição do centro do inimigo
     glm::vec4 ray_origin = enemy.position;
 
+    // Limita o alcance do raycast de inimigo
+    const float max_ray_distance = 15.0f; // Limita o alcance do raycast de inimigo
+
     // Direção do inimigo para o jogador
     glm::vec4 ray_direction = glm::vec4(
         g_Player.position.x - enemy.position.x,
@@ -3805,6 +3808,13 @@ void EnemyToPlayerRaycast(size_t enemy_index)
                            ray_direction.z * ray_direction.z);
     if (dir_length > 0.001f)
     {
+        // Verifica distância antes de normalizar - se o jogador está muito longe, não realiza raycast
+        if (dir_length > max_ray_distance)
+        {
+            // Jogador está muito longe, não realiza raycast
+            return;
+        }
+        
         ray_direction.x /= dir_length;
         ray_direction.y /= dir_length;
         ray_direction.z /= dir_length;
@@ -3827,7 +3837,6 @@ void EnemyToPlayerRaycast(size_t enemy_index)
            g_Player.position.x, g_Player.position.y, g_Player.position.z);
 
     // Realiza o raycast e encontra o ponto de impacto
-    const float max_ray_distance = 100.0f;
     glm::vec4 hit_point = ray_origin + ray_direction * max_ray_distance; // Default: max distance
 
     // Verifica interseção com caixas primeiro
@@ -3973,6 +3982,9 @@ void SpawnNextWave()
     g_CurrentWaveNumber++;
     g_WaveCleared = false;
     g_WaveClearedTimer = 0.0f;
+
+    // Restaura completamente a vida do jogador após cada round
+    g_Player.health = g_Player.max_health;
 
     // Calcula posições de spawn ao redor do jogador
     glm::vec4 player_pos = g_Player.position;
