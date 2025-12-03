@@ -116,9 +116,10 @@ void CameraRaycast(glm::vec4 camera_position, glm::vec4 ray_direction); // Reali
 void PlayerRaycast(); // Realiza raycast a partir do centro do jogador na direção que ele está olhando
 void EnemyToPlayerRaycast(size_t enemy_index); // Realiza raycast de um inimigo específico em direção ao jogador
 void DrawRaycastLine(glm::vec4 start, glm::vec4 end, glm::mat4 view, glm::mat4 projection); // Desenha linha amarela para visualizar raycast
-int SpawnWave(const std::vector<glm::vec4>& spawn_positions); // Spawna uma wave de monstros nas posições especificadas, retorna o ID da wave
+int SpawnWave(const std::vector<glm::vec4>& spawn_positions, float enemy_health_multiplier = 1.0f, float enemy_speed_multiplier = 1.0f); // Spawna uma wave de monstros nas posições especificadas, retorna o ID da wave
 bool IsWaveComplete(int wave_id); // Verifica se todos os monstros de uma wave estão mortos
-void UpdateWaves(); // Atualiza o status de todas as waves
+void UpdateWaves(float delta_time); // Atualiza o status de todas as waves
+void SpawnNextWave(); // Spawna a próxima wave com dificuldade crescente
 std::vector<int> GetActiveWaves(); // Retorna os IDs de todas as waves ativas
 std::vector<int> GetCompleteWaves(); // Retorna os IDs de todas as waves completas
 GLuint LoadShader_Vertex(const char* filename);   // Carrega um vertex shader
@@ -534,16 +535,16 @@ struct Enemy
     }
 
     // Construtor
-    Enemy(glm::vec4 spawn_pos, int wave = -1)
+    Enemy(glm::vec4 spawn_pos, int wave = -1, float health_multiplier = 1.0f, float speed_multiplier = 1.0f)
         : position(spawn_pos)
         , spawn_position(spawn_pos)
         , rotation_y(0.0f)
         , forward_vector(glm::vec4(0.0f, 0.0f, -1.0f, 0.0f))
         , right_vector(glm::vec4(1.0f, 0.0f, 0.0f, 0.0f))
         , movement_state(IDLE)
-        , walk_speed(1.5f)
+        , walk_speed(1.5f * speed_multiplier)
         , current_speed(0.0f)
-        , max_health(100.0f)
+        , max_health(100.0f * health_multiplier)
         , health(max_health)
         , wave_id(wave)
         , destination(spawn_pos)
@@ -778,6 +779,11 @@ std::vector<Enemy> g_Enemies;
 // Lista de waves de monstros
 std::vector<Wave> g_Waves;
 int g_NextWaveID = 0; // Contador para gerar IDs únicos de waves
+int g_CurrentWaveNumber = 0; // Número da wave atual (1-5)
+const int g_MaxWaves = 5; // Número total de waves
+bool g_WaveCleared = false; // Se a wave atual foi completada
+float g_WaveClearedTimer = 0.0f; // Timer para mostrar mensagem e iniciar próxima wave
+const float g_WaveClearedDelay = 3.0f; // Tempo em segundos antes de iniciar próxima wave
 
 // Lista de caixas/barrils no mundo
 std::vector<Box> g_Boxes;
@@ -1102,19 +1108,13 @@ printf("============================\n\n");
     g_Player.camera_angle_horizontal = 0.0f;
     g_Player.camera_angle_vertical = 0.3f;
 
-    // Spawna uma wave de 4 inimigos ao redor do jogador
-    glm::vec4 player_pos = g_Player.position;
-
-    // Calcula a posição Y correta para os inimigos
-    // O cubo vai de -1 a +1, e é escalado por 0.3, então vai de -0.3 a +0.3
-
-    std::vector<glm::vec4> wave_spawn_positions = {
-        glm::vec4(player_pos.x + spawn_distance, enemy_y, player_pos.z, 1.0f),           // Direita
-        glm::vec4(player_pos.x - spawn_distance, enemy_y, player_pos.z, 1.0f),           // Esquerda
-        glm::vec4(player_pos.x, enemy_y, player_pos.z + spawn_distance, 1.0f),           // Frente
-        glm::vec4(player_pos.x, enemy_y, player_pos.z - spawn_distance, 1.0f)            // Atrás
-    };
-    SpawnWave(wave_spawn_positions);
+    // Inicializa o sistema de waves
+    g_CurrentWaveNumber = 0;
+    g_WaveCleared = false;
+    g_WaveClearedTimer = 0.0f;
+    
+    // Spawna a primeira wave
+    SpawnNextWave();
 
     if ( argc > 1 )
     {
@@ -1204,7 +1204,7 @@ printf("============================\n\n");
         }
 
         // Atualizamos o status das waves (verifica se estão completas)
-        UpdateWaves();
+        UpdateWaves(delta_time);
 
 
         glm::vec4 camera_position_c;
@@ -3112,25 +3112,14 @@ void DrawHUD(GLFWwindow* window)
     float line_height = TextRendering_LineHeight(window);
     float char_width = TextRendering_CharWidth(window);
 
-    // Posição do HUD (canto inferior esquerdo em coordenadas NDC)
+    // Posição do HUD (canto superior esquerdo em coordenadas NDC)
     // NDC: x de -1.0 (esquerda) a 1.0 (direita), y de -1.0 (baixo) a 1.0 (cima)
     // Usa uma margem segura para garantir que o texto fique visível
     float hud_x = -1.0f + 10.0f * char_width;  // 10 caracteres da esquerda
-    float hud_y_start = -1.0f + 5.0f * line_height;  // Posição inicial mais alta para caber tudo
+    float hud_y_start = 1.0f - 5.0f * line_height;  // Posição inicial do topo para caber tudo
 
-    // Calcula número da wave atual (maior ID de wave + 1, ou total de waves)
-    int current_wave = 0;
-    if (!g_Waves.empty())
-    {
-        // Encontra o maior ID de wave
-        int max_wave_id = -1;
-        for (const auto& wave : g_Waves)
-        {
-            if (wave.wave_id > max_wave_id)
-                max_wave_id = wave.wave_id;
-        }
-        current_wave = max_wave_id + 1; // Wave number is 1-indexed for display
-    }
+    // Usa o número da wave atual
+    int current_wave = g_CurrentWaveNumber;
 
     // Conta inimigos vivos (não mortos)
     int enemies_left = 0;
@@ -3157,7 +3146,14 @@ void DrawHUD(GLFWwindow* window)
     // Desenha número da wave
     current_y -= 1.5f * line_height;
     char wave_text[64];
-    snprintf(wave_text, 64, "Wave: %d", current_wave);
+    if (current_wave > 0)
+    {
+        snprintf(wave_text, 64, "Wave: %d/%d", current_wave, g_MaxWaves);
+    }
+    else
+    {
+        snprintf(wave_text, 64, "Wave: 0/%d", g_MaxWaves);
+    }
     TextRendering_PrintString(window, wave_text, hud_x, current_y, text_scale);
 
     // Desenha inimigos restantes
@@ -3173,6 +3169,23 @@ void DrawHUD(GLFWwindow* window)
         char reload_text[64];
         snprintf(reload_text, 64, "Reloading: %.1fs", g_Player.reload_time);
         TextRendering_PrintString(window, reload_text, hud_x, current_y, text_scale * 0.9f);
+    }
+
+    // Desenha mensagem de wave cleared se aplicável
+    if (g_WaveCleared)
+    {
+        current_y -= 1.5f * line_height;
+        float time_remaining = g_WaveClearedDelay - g_WaveClearedTimer;
+        char cleared_text[64];
+        if (g_CurrentWaveNumber < g_MaxWaves)
+        {
+            snprintf(cleared_text, 64, "Wave Cleared! Next wave in %.1fs", time_remaining);
+        }
+        else
+        {
+            snprintf(cleared_text, 64, "All Waves Cleared! Victory!");
+        }
+        TextRendering_PrintString(window, cleared_text, hud_x, current_y, text_scale * 1.2f);
     }
 }
 
@@ -3690,7 +3703,7 @@ void EnemyToPlayerRaycast(size_t enemy_index)
 
 // Spawna uma wave de monstros nas posições especificadas
 // Retorna o ID da wave criada
-int SpawnWave(const std::vector<glm::vec4>& spawn_positions)
+int SpawnWave(const std::vector<glm::vec4>& spawn_positions, float enemy_health_multiplier, float enemy_speed_multiplier)
 {
     int wave_id = g_NextWaveID++;
     Wave new_wave(wave_id);
@@ -3699,13 +3712,16 @@ int SpawnWave(const std::vector<glm::vec4>& spawn_positions)
     for (const auto& pos : spawn_positions)
     {
         size_t enemy_index = g_Enemies.size();
-        g_Enemies.push_back(Enemy(pos, wave_id));
+        g_Enemies.push_back(Enemy(pos, wave_id, enemy_health_multiplier, enemy_speed_multiplier));
         new_wave.enemy_indices.push_back(enemy_index);
+        
+        // Log das coordenadas do inimigo spawnado
+        printf("Enemy spawned at coordinates: (%.2f, %.2f, %.2f)\n", pos.x, pos.y, pos.z);
     }
 
     g_Waves.push_back(new_wave);
 
-    printf("Wave %d spawned with %zu enemies\n", wave_id, spawn_positions.size());
+    printf("Wave %d spawned with %zu enemies (health: %.1fx, speed: %.1fx)\n", wave_id, spawn_positions.size(), enemy_health_multiplier, enemy_speed_multiplier);
     return wave_id;
 }
 
@@ -3722,16 +3738,94 @@ bool IsWaveComplete(int wave_id)
     return false; // Wave não encontrada
 }
 
-// Atualiza o status de todas as waves
-void UpdateWaves()
+// Função para spawnar a próxima wave com dificuldade crescente
+void SpawnNextWave()
 {
-    for (auto& wave : g_Waves)
+    if (g_CurrentWaveNumber >= g_MaxWaves)
     {
-        if (wave.is_active && !wave.is_complete)
+        printf("All waves completed! Game finished!\n");
+        return;
+    }
+
+    g_CurrentWaveNumber++;
+    g_WaveCleared = false;
+    g_WaveClearedTimer = 0.0f;
+
+    // Calcula posições de spawn ao redor do jogador
+    glm::vec4 player_pos = g_Player.position;
+    const float spawn_distance = 8.0f;
+    
+    // Calcula a posição Y correta para os inimigos (mesma lógica do código original)
+    const float enemy_scale = 0.3f;
+    const float ground_y = -1.1f; // Altura do chão (mesma usada na inicialização)
+    float enemy_y = ground_y - g_BanditMinY * enemy_scale;
+
+    // Número de inimigos aumenta com a wave (4, 6, 8, 10, 12)
+    int enemy_count = 4 + (g_CurrentWaveNumber - 1) * 2;
+    
+    // Multiplicadores de dificuldade aumentam com a wave
+    float health_multiplier = 1.0f + (g_CurrentWaveNumber - 1) * 0.5f; // 1.0, 1.5, 2.0, 2.5, 3.0
+    float speed_multiplier = 1.0f + (g_CurrentWaveNumber - 1) * 0.2f; // 1.0, 1.2, 1.4, 1.6, 1.8
+
+    std::vector<glm::vec4> spawn_positions;
+    
+    // Gera posições de spawn em círculo ao redor do jogador
+    for (int i = 0; i < enemy_count; i++)
+    {
+        float angle = (2.0f * M_PI * i) / enemy_count;
+        glm::vec4 spawn_pos(
+            player_pos.x + spawn_distance * cos(angle),
+            enemy_y,
+            player_pos.z + spawn_distance * sin(angle),
+            1.0f
+        );
+        spawn_positions.push_back(spawn_pos);
+    }
+
+    SpawnWave(spawn_positions, health_multiplier, speed_multiplier);
+    printf("Wave %d/%d started!\n", g_CurrentWaveNumber, g_MaxWaves);
+}
+
+// Atualiza o status de todas as waves
+void UpdateWaves(float delta_time)
+{
+    // Atualiza timer de wave cleared
+    if (g_WaveCleared)
+    {
+        g_WaveClearedTimer += delta_time;
+        
+        // Se passou o tempo de delay, spawna próxima wave
+        if (g_WaveClearedTimer >= g_WaveClearedDelay)
         {
-            if (wave.CheckCompletion(g_Enemies))
+            SpawnNextWave();
+        }
+    }
+
+    // Verifica se alguma wave foi completada
+    // Encontra a wave mais recente (maior wave_id) que ainda não está completa
+    int most_recent_wave_id = -1;
+    for (const auto& wave : g_Waves)
+    {
+        if (wave.wave_id > most_recent_wave_id)
+            most_recent_wave_id = wave.wave_id;
+    }
+    
+    // Verifica se a wave mais recente foi completada
+    if (most_recent_wave_id >= 0)
+    {
+        for (auto& wave : g_Waves)
+        {
+            if (wave.wave_id == most_recent_wave_id && wave.is_active && !wave.is_complete)
             {
-                printf("Wave %d COMPLETE! All enemies defeated!\n", wave.wave_id);
+                if (wave.CheckCompletion(g_Enemies))
+                {
+                    printf("Wave %d COMPLETE! All enemies defeated!\n", wave.wave_id);
+                    
+                    // Marca como cleared para mostrar mensagem e iniciar próxima wave
+                    g_WaveCleared = true;
+                    g_WaveClearedTimer = 0.0f;
+                }
+                break;
             }
         }
     }
