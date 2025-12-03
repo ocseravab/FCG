@@ -345,41 +345,77 @@ struct Player
     }
 
     // Atualiza a posição do jogador baseado no movimento e no tempo decorrido
-    // O movimento é relativo à direção da câmera (terceira pessoa)
+    // O movimento é relativo à direção da câmera (terceira pessoa ou primeira pessoa)
     void UpdatePosition(float delta_time)
     {
         // Atualiza o estado de movimento
         UpdateMovementState();
 
-        // Calcula a direção da câmera (forward da câmera)
-        glm::vec4 camera_forward = glm::vec4(
-            GetCameraLookAt().x - GetThirdPersonCameraPosition().x,
-            GetCameraLookAt().y - GetThirdPersonCameraPosition().y,
-            GetCameraLookAt().z - GetThirdPersonCameraPosition().z,
-            0.0f // ← ESSENCIAL!!!
-        );
+        glm::vec4 camera_forward;
+        glm::vec4 camera_right;
 
-        camera_forward.y = 0.0f; // Mantém o movimento apenas no plano horizontal
-
-        float camera_forward_length = sqrt(camera_forward.x * camera_forward.x + camera_forward.z * camera_forward.z);
-
-        // Atualiza a rotação do jogador para sempre corresponder à direção forward da câmera
-        if (camera_forward_length > 0.001f)
+        // Calcula a direção da câmera baseado no modo
+        if (g_CameraMode == CAMERA_FIRST_PERSON)
         {
-            camera_forward.x /= camera_forward_length;
-            camera_forward.z /= camera_forward_length;
-
-            // A rotação do jogador sempre corresponde à direção forward da câmera
+            // Em primeira pessoa, usa o forward_vector calculado pelo mouse
+            camera_forward = forward_vector;
+            
+            // Mantém o movimento apenas no plano horizontal (remove componente Y)
+            camera_forward.y = 0.0f;
+            
+            // Normaliza o vetor forward no plano horizontal
+            float forward_length = sqrt(camera_forward.x * camera_forward.x + camera_forward.z * camera_forward.z);
+            if (forward_length > 0.001f)
+            {
+                camera_forward.x /= forward_length;
+                camera_forward.z /= forward_length;
+            }
+            
+            // Calcula a direção direita da câmera (perpendicular ao forward no plano horizontal)
+            // Usa o mesmo método que terceira pessoa para consistência
+            camera_right = crossproduct(camera_forward, glm::vec4(0.0f, 1.0f, 0.0f, 0.0f));
+            float camera_right_length = sqrt(camera_right.x * camera_right.x + camera_right.z * camera_right.z);
+            if (camera_right_length > 0.001f)
+            {
+                camera_right.x /= camera_right_length;
+                camera_right.z /= camera_right_length;
+            }
+            
+            // Atualiza a rotação do jogador para corresponder à direção forward
             rotation_y = atan2(camera_forward.x, -camera_forward.z);
         }
-
-        // Calcula a direção direita da câmera (perpendicular ao forward no plano horizontal)
-        glm::vec4 camera_right = crossproduct(camera_forward, glm::vec4(0.0f, 1.0f, 0.0f, 0.0f));
-        float camera_right_length = sqrt(camera_right.x * camera_right.x + camera_right.z * camera_right.z);
-        if (camera_right_length > 0.001f)
+        else
         {
-            camera_right.x /= camera_right_length;
-            camera_right.z /= camera_right_length;
+            // Em terceira pessoa, calcula a direção da câmera
+            camera_forward = glm::vec4(
+                GetCameraLookAt().x - GetThirdPersonCameraPosition().x,
+                GetCameraLookAt().y - GetThirdPersonCameraPosition().y,
+                GetCameraLookAt().z - GetThirdPersonCameraPosition().z,
+                0.0f // ← ESSENCIAL!!!
+            );
+
+            camera_forward.y = 0.0f; // Mantém o movimento apenas no plano horizontal
+
+            float camera_forward_length = sqrt(camera_forward.x * camera_forward.x + camera_forward.z * camera_forward.z);
+
+            // Atualiza a rotação do jogador para sempre corresponder à direção forward da câmera
+            if (camera_forward_length > 0.001f)
+            {
+                camera_forward.x /= camera_forward_length;
+                camera_forward.z /= camera_forward_length;
+
+                // A rotação do jogador sempre corresponde à direção forward da câmera
+                rotation_y = atan2(camera_forward.x, -camera_forward.z);
+            }
+
+            // Calcula a direção direita da câmera (perpendicular ao forward no plano horizontal)
+            camera_right = crossproduct(camera_forward, glm::vec4(0.0f, 1.0f, 0.0f, 0.0f));
+            float camera_right_length = sqrt(camera_right.x * camera_right.x + camera_right.z * camera_right.z);
+            if (camera_right_length > 0.001f)
+            {
+                camera_right.x /= camera_right_length;
+                camera_right.z /= camera_right_length;
+            }
         }
 
         // Calcula o vetor de movimento baseado nas teclas pressionadas
