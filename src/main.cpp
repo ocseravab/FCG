@@ -326,6 +326,23 @@ struct Player
         return player_reference;
     }
 
+    // Aplica dano ao jogador
+    void TakeDamage(float damage)
+    {
+        if (health <= 0.0f)
+            return; // Já está morto
+
+        health -= damage;
+        if (health < 0.0f)
+            health = 0.0f;
+    }
+
+    // Verifica se o jogador está morto
+    bool IsDead() const
+    {
+        return health <= 0.0f;
+    }
+
     // Atualiza a posição do jogador baseado no movimento e no tempo decorrido
     // O movimento é relativo à direção da câmera (terceira pessoa)
     void UpdatePosition(float delta_time)
@@ -423,6 +440,12 @@ struct Enemy
     glm::vec4 bezier_p2;         // Segundo ponto de controle da curva Bezier
     float bezier_progress;       // Progresso ao longo da curva (0.0 a 1.0)
     float bezier_total_distance; // Distância total da curva (para calcular velocidade)
+
+    // Raycast visualization
+    bool draw_raycast;            // Se deve desenhar o raycast deste inimigo
+    glm::vec4 raycast_start;      // Ponto inicial do raycast
+    glm::vec4 raycast_end;        // Ponto final do raycast
+    float raycast_time;           // Tempo quando o raycast foi realizado
 
     // Função auxiliar para calcular posição em uma curva Bezier cúbica
     // t deve estar entre 0.0 e 1.0
@@ -528,6 +551,10 @@ struct Enemy
         , bezier_p2(spawn_pos)
         , bezier_progress(0.0f)
         , bezier_total_distance(0.0f)
+        , draw_raycast(false)
+        , raycast_start(spawn_pos)
+        , raycast_end(spawn_pos)
+        , raycast_time(0.0f)
     {
         // Gera o caminho Bezier inicial
         GenerateNewBezierPath();
@@ -1340,20 +1367,27 @@ printf("============================\n\n");
             DrawEnemyHitbox(hitbox_center, entity_radius, view, projection);
         }
 
-        // Desenha linha amarela do raycast de inimigo se ativada e ainda dentro do tempo
-        if (g_DrawEnemyRaycast)
+        // Desenha linhas amarelas dos raycasts de todos os inimigos
+        const float g_EnemyRaycastDuration = 3.0f; // Duração em segundos que a linha fica visível
+        
+        for (auto& enemy : g_Enemies)
         {
-            float current_time = (float)glfwGetTime();
-            float elapsed_time = current_time - g_EnemyRaycastTime;
+            if (enemy.IsDead())
+                continue;
+            
+            if (enemy.draw_raycast)
+            {
+                float elapsed_time = current_time - enemy.raycast_time;
 
-            if (elapsed_time < g_EnemyRaycastDuration)
-            {
-                DrawRaycastLine(g_EnemyRaycastStart, g_EnemyRaycastEnd, view, projection);
-            }
-            else
-            {
-                // Desativa o desenho após 3 segundos
-                g_DrawEnemyRaycast = false;
+                if (elapsed_time < g_EnemyRaycastDuration)
+                {
+                    DrawRaycastLine(enemy.raycast_start, enemy.raycast_end, view, projection);
+                }
+                else
+                {
+                    // Desativa o desenho após 3 segundos
+                    enemy.draw_raycast = false;
+                }
             }
         }
 
@@ -2345,6 +2379,32 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
         {
             g_Player.is_reloading = true;
             g_Player.reload_time = g_Player.reload_time_total;
+        }
+    }
+
+    // Se o usuário apertar a tecla E, realiza raycast de todos os inimigos em direção ao jogador
+    // (cada chamada atualiza a linha visual, então múltiplas pressões mostram diferentes inimigos)
+    if (key == GLFW_KEY_E && action == GLFW_PRESS)
+    {
+        bool found_enemy = false;
+        // Realiza raycast de cada inimigo vivo em direção ao jogador
+        // A última chamada será a que fica visível na tela
+        for (size_t i = 0; i < g_Enemies.size(); ++i)
+        {
+            if (!g_Enemies[i].IsDead())
+            {
+                EnemyToPlayerRaycast(i);
+                found_enemy = true;
+            }
+        }
+        
+        if (found_enemy)
+        {
+            printf("Raycast from all enemies to player triggered (E key pressed)\n");
+        }
+        else
+        {
+            printf("No alive enemies found for raycast (E key pressed)\n");
         }
     }
 }
@@ -3591,23 +3651,41 @@ void EnemyToPlayerRaycast(size_t enemy_index)
     }
 
     // Determina o ponto de impacto mais próximo
+    bool player_hit_and_not_blocked = false;
     if (hit_box && (!hit_player || closest_box_t < closest_player_t))
     {
         hit_point = ray_origin + ray_direction * closest_box_t;
+        // Caixa bloqueou o raycast, não causa dano ao jogador
     }
     else if (hit_player)
     {
         hit_point = ray_origin + ray_direction * closest_player_t;
+        // Jogador foi atingido e não há caixa bloqueando
+        player_hit_and_not_blocked = true;
+    }
+
+    // Aplica dano ao jogador se foi atingido e não foi bloqueado por uma caixa
+    if (player_hit_and_not_blocked)
+    {
+        const float enemy_damage_amount = 10.0f; // Quantidade de dano que o inimigo causa
+        g_Player.TakeDamage(enemy_damage_amount);
+        printf("Enemy %zu hit player! Player health: %.1f/%.1f\n",
+               enemy_index, g_Player.health, g_Player.max_health);
+        
+        if (g_Player.IsDead())
+        {
+            printf("PLAYER DEFEATED!\n");
+        }
     }
 
     // Usa a mesma lógica do CameraRaycast para aplicar dano, etc.
     CameraRaycast(ray_origin, ray_direction);
 
-    // Armazena informações do raycast para desenhar a linha amarela
-    g_EnemyRaycastStart = ray_origin;
-    g_EnemyRaycastEnd = hit_point;
-    g_EnemyRaycastTime = (float)glfwGetTime(); // Registra o tempo atual
-    g_DrawEnemyRaycast = true;
+    // Armazena informações do raycast para desenhar a linha amarela (por inimigo)
+    enemy.raycast_start = ray_origin;
+    enemy.raycast_end = hit_point;
+    enemy.raycast_time = (float)glfwGetTime(); // Registra o tempo atual
+    enemy.draw_raycast = true;
 }
 
 // Spawna uma wave de monstros nas posições especificadas
