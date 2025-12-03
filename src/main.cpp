@@ -224,7 +224,7 @@ struct Player
 
     // Sistema de tiro
     int magazine_ammo;           // Munição atual no carregador
-    int magazine_size;           // Tamanho do carregador (6 balas)
+    int magazine_size;           // Tamanho do carregador (12 balas)
     float shoot_cooldown;        // Tempo restante do cooldown de tiro (em segundos)
     float shoot_cooldown_time;   // Tempo total do cooldown de tiro (em segundos)
     float reload_time;           // Tempo restante do reload (em segundos)
@@ -253,10 +253,10 @@ struct Player
         , moving_right(false)
         , max_health(100.0f)
         , health(100.0f)  // Initialize with literal value since max_health isn't initialized yet
-        , magazine_size(6)
-        , magazine_ammo(6)  // Initialize with literal value since magazine_size isn't initialized yet
+        , magazine_size(12)
+        , magazine_ammo(12)  // Initialize with literal value since magazine_size isn't initialized yet
         , shoot_cooldown(0.0f)
-        , shoot_cooldown_time(0.5f)  // 0.5 segundos de cooldown entre tiros
+        , shoot_cooldown_time(0.2f)  // 0.2 segundos de cooldown entre tiros
         , reload_time(0.0f)
         , reload_time_total(2.0f)     // 2 segundos para recarregar
         , is_reloading(false)
@@ -498,6 +498,12 @@ struct Enemy
     glm::vec4 raycast_end;        // Ponto final do raycast
     float raycast_time;           // Tempo quando o raycast foi realizado
 
+    // Sistema de tiro
+    float shoot_cooldown;         // Tempo restante do cooldown de tiro (em segundos)
+    float shoot_cooldown_time;    // Tempo total do cooldown de tiro (em segundos)
+    float shoot_probability_check_timer; // Timer para verificar probabilidade de tiro (verifica a cada 1 segundo)
+    float shoot_probability;      // Probabilidade de atirar por segundo (0.0 a 1.0)
+
     // Função auxiliar para calcular posição em uma curva Bezier cúbica
     // t deve estar entre 0.0 e 1.0
     glm::vec4 CalculateBezierPosition(glm::vec4 p0, glm::vec4 p1, glm::vec4 p2, glm::vec4 p3, float t)
@@ -624,9 +630,20 @@ struct Enemy
         , raycast_start(spawn_pos)
         , raycast_end(spawn_pos)
         , raycast_time(0.0f)
+        , shoot_cooldown(2.0f)  // Cooldown inicial de 2 segundos ao spawnar (dá tempo para o jogador se preparar)
+        , shoot_cooldown_time(2.5f)  // 2.5 segundos de cooldown entre tiros
+        , shoot_probability_check_timer(0.0f)
+        , shoot_probability(0.3f)  // 30% de chance de atirar por segundo
     {
         // Gera o caminho Bezier inicial
         GenerateNewBezierPath();
+        
+        // Inicializa o timer de probabilidade com um valor aleatório entre 0 e 1 segundo
+        // para evitar que todos os inimigos atirem ao mesmo tempo
+        static std::random_device rd;
+        static std::mt19937 gen(rd());
+        std::uniform_real_distribution<float> timer_dist(0.0f, 1.0f);
+        shoot_probability_check_timer = timer_dist(gen);
     }
 
     // Atualiza os vetores de direção baseado na rotação Y
@@ -1392,12 +1409,52 @@ printf("============================\n\n");
         }
 
         // Atualizamos todos os inimigos (apenas os vivos)
-        for (auto& enemy : g_Enemies)
+        static std::random_device rd;
+        static std::mt19937 gen(rd());
+        std::uniform_real_distribution<float> prob_dist(0.0f, 1.0f);
+        
+        for (size_t i = 0; i < g_Enemies.size(); ++i)
         {
+            auto& enemy = g_Enemies[i];
             if (enemy.IsDead())
                 continue;
+            
             enemy.UpdatePosition(delta_time);
             enemy.UpdateDirectionVectors();
+            
+            // Atualiza o cooldown de tiro
+            if (enemy.shoot_cooldown > 0.0f)
+            {
+                enemy.shoot_cooldown -= delta_time;
+                if (enemy.shoot_cooldown < 0.0f)
+                    enemy.shoot_cooldown = 0.0f;
+            }
+            
+            // Atualiza o timer de verificação de probabilidade
+            enemy.shoot_probability_check_timer += delta_time;
+            
+            // Verifica probabilidade de tiro a cada 1 segundo
+            if (enemy.shoot_probability_check_timer >= 1.0f)
+            {
+                // Reseta o timer
+                enemy.shoot_probability_check_timer = 0.0f;
+                
+                // Verifica se pode atirar (cooldown acabou)
+                if (enemy.shoot_cooldown <= 0.0f)
+                {
+                    // Gera um número aleatório entre 0 e 1
+                    float random_value = prob_dist(gen);
+                    
+                    // Se o valor aleatório for menor que a probabilidade, o inimigo atira
+                    if (random_value < enemy.shoot_probability)
+                    {
+                        // Inimigo atira
+                        EnemyToPlayerRaycast(i);
+                        // Inicia o cooldown
+                        enemy.shoot_cooldown = enemy.shoot_cooldown_time;
+                    }
+                }
+            }
         }
 
         // Atualizamos o status das waves (verifica se estão completas)
