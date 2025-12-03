@@ -110,6 +110,7 @@ void DrawDirectionIndicator(glm::vec4 position, glm::vec4 forward, float length,
 void DrawEnemyHitbox(glm::vec4 position, float radius, glm::mat4 view, glm::mat4 projection); // Desenha hitbox do inimigo (esfera wireframe)
 void DrawPlayerHitbox(glm::vec4 position, float radius, glm::mat4 view, glm::mat4 projection); // Desenha hitbox do jogador (esfera wireframe)
 bool CheckPlayerBoxCollision(const glm::vec4& player_position); // Verifica colisão entre jogador e caixas
+bool CheckEnemyBoxCollision(const glm::vec4& enemy_position); // Verifica colisão entre inimigo e caixas
 void DrawCrosshair(GLFWwindow* window); // Desenha crosshair no centro da tela
 void DrawBezierSpline(glm::vec4 p0, glm::vec4 p1, glm::vec4 p2, glm::vec4 p3, glm::mat4 view, glm::mat4 projection); // Desenha spline Bezier
 void DrawHealthBar(GLFWwindow* window, glm::vec4 world_position, float health, float max_health, glm::mat4 view, glm::mat4 projection); // Desenha barra de vida acima do inimigo
@@ -522,24 +523,42 @@ struct Enemy
         glm::vec4 start_pos = position;
 
         // Gera um destino aleatório em um raio de 10 a 20 unidades da posição atual
+        // Tenta evitar caixas procurando por um destino que não colida
         static std::random_device rd;
         static std::mt19937 gen(rd());
         std::uniform_real_distribution<float> angle_dist(0.0f, 2.0f * M_PI);
         std::uniform_real_distribution<float> distance_dist(10.0f, 20.0f);
 
-        float angle = angle_dist(gen);
-        float distance = distance_dist(gen);
+        // Tenta até 10 vezes encontrar um destino que não colida com caixas
+        const int max_attempts = 10;
+        bool found_valid_destination = false;
+        
+        for (int attempt = 0; attempt < max_attempts; ++attempt)
+        {
+            float angle = angle_dist(gen);
+            float distance = distance_dist(gen);
 
-        destination = glm::vec4(
-            start_pos.x + distance * cos(angle),
-            start_pos.y,
-            start_pos.z + distance * sin(angle),
-            1.0f
-        );
+            destination = glm::vec4(
+                start_pos.x + distance * cos(angle),
+                start_pos.y,
+                start_pos.z + distance * sin(angle),
+                1.0f
+            );
 
-        // Garante que o destino está dentro dos limites do mapa
-        destination.x = glm::clamp(destination.x, MAP_MIN_X, MAP_MAX_X);
-        destination.z = glm::clamp(destination.z, MAP_MIN_Z, MAP_MAX_Z);
+            // Garante que o destino está dentro dos limites do mapa
+            destination.x = glm::clamp(destination.x, MAP_MIN_X, MAP_MAX_X);
+            destination.z = glm::clamp(destination.z, MAP_MIN_Z, MAP_MAX_Z);
+            
+            // Verifica se o destino colide com alguma caixa
+            if (!CheckEnemyBoxCollision(destination))
+            {
+                found_valid_destination = true;
+                break; // Encontrou um destino válido
+            }
+        }
+        
+        // Se não encontrou um destino sem colisão após várias tentativas, usa o último gerado mesmo assim
+        // (o inimigo vai recalcular quando detectar colisão durante o movimento)
 
         // Calcula pontos de controle para criar uma curva suave
         // Os pontos de controle são posicionados perpendicularmente à direção do movimento
@@ -674,6 +693,14 @@ struct Enemy
         // Garante que a posição está dentro dos limites do mapa
         new_position.x = glm::clamp(new_position.x, MAP_MIN_X, MAP_MAX_X);
         new_position.z = glm::clamp(new_position.z, MAP_MIN_Z, MAP_MAX_Z);
+
+        // Verifica colisão antes de atualizar a posição
+        if (CheckEnemyBoxCollision(new_position))
+        {
+            // Colisão detectada! Recalcula o caminho Bezier para evitar a caixa
+            GenerateNewBezierPath();
+            return; // Não atualiza a posição neste frame
+        }
 
         // Atualiza a posição
         position = new_position;
@@ -885,6 +912,66 @@ bool CheckPlayerBoxCollision(const glm::vec4& player_position)
         
         // Se a distância é menor que o raio, há colisão
         if (distance_sq < player_radius * player_radius)
+        {
+            return true; // Colisão detectada
+        }
+    }
+    
+    return false; // Sem colisão
+}
+
+bool CheckEnemyBoxCollision(const glm::vec4& enemy_position)
+{
+    const float enemy_radius = 0.3f; // Raio da hitbox do inimigo (mesmo usado na detecção)
+    const float enemy_scale_collision = 0.3f;
+    const float enemy_scale_y_collision = 0.3f;
+    
+    // Obtém os offsets do centro do modelo em coordenadas de modelo
+    SceneObject bandit_obj = g_VirtualScene["bandit"];
+    float center_x = (bandit_obj.bbox_min.x + bandit_obj.bbox_max.x) * 0.5f;
+    float center_z = (bandit_obj.bbox_min.z + bandit_obj.bbox_max.z) * 0.5f;
+    
+    // Calcula o centro da hitbox do inimigo em world space (mesma lógica do hitbox rendering)
+    glm::vec3 enemy_center = glm::vec3(
+        enemy_position.x + center_x * enemy_scale_collision,
+        enemy_position.y + g_BanditCenterModel.y * enemy_scale_y_collision,
+        enemy_position.z + center_z * enemy_scale_collision
+    );
+    
+    // Verifica colisão com cada caixa
+    for (const auto& box : g_Boxes)
+    {
+        // Calcula o AABB da caixa considerando a rotação
+        // Para simplificar, usamos a maior extensão horizontal (diagonal do quadrado)
+        float max_horizontal_extent = sqrt(box.scale.x * box.scale.x + box.scale.z * box.scale.z);
+        
+        // AABB da caixa (axis-aligned, aproximação conservadora)
+        glm::vec3 box_min = glm::vec3(
+            box.position.x - max_horizontal_extent,
+            box.position.y - box.scale.y,
+            box.position.z - max_horizontal_extent
+        );
+        glm::vec3 box_max = glm::vec3(
+            box.position.x + max_horizontal_extent,
+            box.position.y + box.scale.y,
+            box.position.z + max_horizontal_extent
+        );
+        
+        // Encontra o ponto mais próximo da esfera ao AABB
+        glm::vec3 closest_point = glm::vec3(
+            glm::clamp(enemy_center.x, box_min.x, box_max.x),
+            glm::clamp(enemy_center.y, box_min.y, box_max.y),
+            glm::clamp(enemy_center.z, box_min.z, box_max.z)
+        );
+        
+        // Calcula a distância do centro da esfera ao ponto mais próximo
+        float distance_sq = 
+            (enemy_center.x - closest_point.x) * (enemy_center.x - closest_point.x) +
+            (enemy_center.y - closest_point.y) * (enemy_center.y - closest_point.y) +
+            (enemy_center.z - closest_point.z) * (enemy_center.z - closest_point.z);
+        
+        // Se a distância é menor que o raio, há colisão
+        if (distance_sq < enemy_radius * enemy_radius)
         {
             return true; // Colisão detectada
         }
@@ -1392,9 +1479,20 @@ printf("============================\n\n");
         if (g_CameraMode == CAMERA_THIRD_PERSON)
         {
             // Desenhamos o jogador APENAS se for câmera em terceira pessoa
-            // Primeiro transladamos para a posição do jogador, depois rotacionamos em torno do eixo Y
-            model = Matrix_Translate(g_Player.position.x, g_Player.position.y, g_Player.position.z);
+            // Calcula o centro do modelo (onde a hitbox está) para alinhar renderização com hitbox
+            const float player_scale = 0.3f;
+            glm::vec4 model_center_world = glm::vec4(
+                g_Player.position.x + g_Player.model_center.x * player_scale,
+                g_Player.position.y + g_Player.model_center.y * player_scale,
+                g_Player.position.z + g_Player.model_center.z * player_scale,
+                1.0f
+            );
+            // Renderiza no centro do modelo, depois translada para compensar o centro do modelo antes de escalar
+            model = Matrix_Translate(model_center_world.x, model_center_world.y, model_center_world.z);
             model = model * Matrix_Rotate_Y(g_Player.rotation_y);
+            model = model * Matrix_Translate(-g_Player.model_center.x * player_scale, 
+                                            -g_Player.model_center.y * player_scale, 
+                                            -g_Player.model_center.z * player_scale);
             // Escalamos um pouco para que o jogador seja visível
             model = model * Matrix_Scale(0.3f, 0.3f, 0.3f);
             glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
@@ -1411,15 +1509,32 @@ printf("============================\n\n");
         }
 
         // Desenhamos todos os inimigos (apenas os vivos)
+        const float enemy_scale = 0.3f;
+        const float scale_y = 0.3f;
+        // Obtém os offsets do centro do modelo em coordenadas de modelo (calcula uma vez fora do loop)
+        SceneObject bandit_obj_render = g_VirtualScene["bandit"];
+        float center_x_render = (bandit_obj_render.bbox_min.x + bandit_obj_render.bbox_max.x) * 0.5f;
+        float center_z_render = (bandit_obj_render.bbox_min.z + bandit_obj_render.bbox_max.z) * 0.5f;
+        
         for (const auto& enemy : g_Enemies)
         {
             // Pula inimigos mortos - eles não devem ser renderizados
             if (enemy.IsDead())
                 continue;
 
-            float scale_y = 0.3f;
-            model = Matrix_Translate(enemy.position.x, enemy.position.y, enemy.position.z);
+            // Calcula o centro do modelo (onde a hitbox está) para alinhar renderização com hitbox
+            glm::vec4 model_center_world = glm::vec4(
+                enemy.position.x + center_x_render * enemy_scale,
+                enemy.position.y + g_BanditCenterModel.y * scale_y,
+                enemy.position.z + center_z_render * enemy_scale,
+                1.0f
+            );
+            // Renderiza no centro do modelo, depois translada para compensar o centro do modelo antes de escalar
+            model = Matrix_Translate(model_center_world.x, model_center_world.y, model_center_world.z);
             model = model * Matrix_Rotate_Y(-enemy.rotation_y);
+            model = model * Matrix_Translate(-center_x_render * enemy_scale, 
+                                            -g_BanditCenterModel.y * scale_y, 
+                                            -center_z_render * enemy_scale);
             model = model * Matrix_Scale(0.3f, scale_y, 0.3f);
             glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
             glUniform1i(g_object_id_uniform, ENEMY);
@@ -1436,8 +1551,7 @@ printf("============================\n\n");
 
         // Desenhamos as hitboxes dos inimigos (apenas para inimigos vivos)
         const float entity_radius = 0.3f; // Raio da hitbox (mesmo usado na detecção de colisão)
-        const float enemy_scale = 0.3f;
-        const float scale_y = 0.3f;
+        // enemy_scale e scale_y já foram declarados acima, reutilizamos
         const float ground_y = -1.1f;
         
         // Obtém os offsets do centro do modelo em coordenadas de modelo
