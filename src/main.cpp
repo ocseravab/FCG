@@ -108,6 +108,7 @@ GLuint LoadTextureImage(const char* filename); // Função que carrega imagens d
 void DrawVirtualObject(const char* object_name); // Desenha um objeto armazenado em g_VirtualScene
 void DrawDirectionIndicator(glm::vec4 position, glm::vec4 forward, float length, glm::mat4 view, glm::mat4 projection, bool is_player = false); // Desenha indicador de direção
 void DrawEnemyHitbox(glm::vec4 position, float radius, glm::mat4 view, glm::mat4 projection); // Desenha hitbox do inimigo (esfera wireframe)
+void DrawPlayerHitbox(glm::vec4 position, float radius, glm::mat4 view, glm::mat4 projection); // Desenha hitbox do jogador (esfera wireframe)
 void DrawCrosshair(GLFWwindow* window); // Desenha crosshair no centro da tela
 void DrawBezierSpline(glm::vec4 p0, glm::vec4 p1, glm::vec4 p2, glm::vec4 p3, glm::mat4 view, glm::mat4 projection); // Desenha spline Bezier
 void DrawHealthBar(GLFWwindow* window, glm::vec4 world_position, float health, float max_health, glm::mat4 view, glm::mat4 projection); // Desenha barra de vida acima do inimigo
@@ -1110,35 +1111,40 @@ printf("============================\n\n");
     ComputeNormals(&cubemodel);
     BuildTrianglesAndAddToVirtualScene(&cubemodel);
 
-    // Inicializamos algumas caixas/barrils no mundo
+    // Inicializamos caixas/barrils espalhadas por todo o mapa
     const float box_y = ground_y + 0.25f; // Caixas ficam meio acima do chão
-
-    // Posições dos inimigos (para evitar colisão)
-    // Inimigos spawnam a 5.0f de distância do jogador nas 4 direções cardinais
-    // Vamos posicionar caixas em outras áreas, evitando essas posições
-    float player_x = g_Player.position.x;
-    float player_z = g_Player.position.z;
-    float spawn_distance = 5.0f;
-    float min_distance_from_spawn = 2.0f; // Distância mínima das posições de spawn dos inimigos
-
-    // Adiciona várias caixas em posições que não colidem com spawns de inimigos
-    // Posições diagonais e mais distantes
-    g_Boxes.push_back(Box(glm::vec4(player_x + 7.0f, box_y, player_z + 7.0f, 1.0f), 0.0f, glm::vec3(0.4f, 0.4f, 0.4f)));
-    g_Boxes.push_back(Box(glm::vec4(player_x - 7.0f, box_y, player_z + 7.0f, 1.0f), 0.5f, glm::vec3(0.5f, 0.5f, 0.5f)));
-    g_Boxes.push_back(Box(glm::vec4(player_x + 7.0f, box_y, player_z - 7.0f, 1.0f), 1.0f, glm::vec3(0.3f, 0.6f, 0.3f))); // Barril mais alto
-    g_Boxes.push_back(Box(glm::vec4(player_x - 7.0f, box_y, player_z - 7.0f, 1.0f), 1.5f, glm::vec3(0.4f, 0.4f, 0.4f)));
-
-    // Posições laterais (evitando as 4 direções cardinais onde inimigos spawnam)
-    g_Boxes.push_back(Box(glm::vec4(player_x + 8.0f, box_y, player_z + 2.0f, 1.0f), 0.0f, glm::vec3(0.5f, 0.5f, 0.5f)));
-    g_Boxes.push_back(Box(glm::vec4(player_x - 8.0f, box_y, player_z - 2.0f, 1.0f), 0.0f, glm::vec3(0.4f, 0.4f, 0.4f)));
-    g_Boxes.push_back(Box(glm::vec4(player_x + 2.0f, box_y, player_z + 8.0f, 1.0f), 0.0f, glm::vec3(0.3f, 0.6f, 0.3f))); // Barril mais alto
-    g_Boxes.push_back(Box(glm::vec4(player_x - 2.0f, box_y, player_z - 8.0f, 1.0f), 0.0f, glm::vec3(0.5f, 0.5f, 0.5f)));
-
-    // Mais algumas caixas em posições variadas
-    g_Boxes.push_back(Box(glm::vec4(player_x + 6.0f, box_y, player_z + 3.0f, 1.0f), 0.8f, glm::vec3(0.4f, 0.4f, 0.4f)));
-    g_Boxes.push_back(Box(glm::vec4(player_x - 6.0f, box_y, player_z - 3.0f, 1.0f), 1.2f, glm::vec3(0.3f, 0.6f, 0.3f))); // Barril mais alto
-    g_Boxes.push_back(Box(glm::vec4(player_x + 3.0f, box_y, player_z + 6.0f, 1.0f), 0.3f, glm::vec3(0.4f, 0.4f, 0.4f)));
-    g_Boxes.push_back(Box(glm::vec4(player_x - 3.0f, box_y, player_z - 6.0f, 1.0f), 0.7f, glm::vec3(0.5f, 0.5f, 0.5f)));
+    
+    // Espaçamento entre caixas (ajustável)
+    const float box_spacing = 4.0f; // Distância entre caixas
+    const float box_margin = 2.0f; // Margem das bordas do mapa
+    
+    // Gera caixas em uma grade cobrindo todo o mapa
+    for (float x = MAP_MIN_X + box_margin; x <= MAP_MAX_X - box_margin; x += box_spacing)
+    {
+        for (float z = MAP_MIN_Z + box_margin; z <= MAP_MAX_Z - box_margin; z += box_spacing)
+        {
+            // Adiciona alguma variação aleatória na posição para parecer mais natural
+            float offset_x = (rand() % 100) / 100.0f * 1.0f - 0.5f; // -0.5 a 0.5
+            float offset_z = (rand() % 100) / 100.0f * 1.0f - 0.5f; // -0.5 a 0.5
+            
+            // Variação na rotação
+            float rotation = (rand() % 100) / 100.0f * 2.0f * M_PI; // 0 a 2π
+            
+            // Variação no tamanho (algumas caixas maiores, outras menores)
+            float scale_variation = 0.3f + (rand() % 100) / 100.0f * 0.4f; // 0.3 a 0.7
+            float height_variation = 0.3f + (rand() % 100) / 100.0f * 0.5f; // 0.3 a 0.8
+            
+            // Aplica variação com probabilidade (não todas as posições têm caixa)
+            if ((rand() % 100) < 80) // 80% de chance de ter uma caixa nesta posição
+            {
+                g_Boxes.push_back(Box(
+                    glm::vec4(x + offset_x, box_y, z + offset_z, 1.0f),
+                    rotation,
+                    glm::vec3(scale_variation, height_variation, scale_variation)
+                ));
+            }
+        }
+    }
 
     // Inicializamos a câmera para começar olhando para o jogador
     g_Player.camera_angle_horizontal = 0.0f;
@@ -1186,9 +1192,9 @@ printf("============================\n\n");
 
         // Aqui executamos as operações de renderização
 
-        // Definimos a cor do "fundo" do framebuffer como branco.
+        // Definimos a cor do "fundo" do framebuffer como cor de céu (azul-acinzentado médio).
         //           R     G     B     A
-        glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+        glClearColor(0.4f, 0.5f, 0.6f, 1.0f);
 
         // "Pintamos" todos os pixels do framebuffer com a cor definida acima, e também resetamos todos os pixels do Z-buffer (depth buffer).
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -1401,6 +1407,38 @@ printf("============================\n\n");
             }
             
             DrawEnemyHitbox(hitbox_center, entity_radius, view, projection);
+        }
+
+        // Desenhamos a hitbox do jogador
+        {
+            const float player_entity_radius = 0.3f; // Raio da hitbox (mesmo usado na detecção de colisão)
+            const float player_scale = 0.3f;
+            const float ground_y = -1.1f;
+            
+            // Obtém os offsets do centro do modelo em coordenadas de modelo
+            SceneObject cowboy_obj = g_VirtualScene["cowboy"];
+            float center_x = (cowboy_obj.bbox_min.x + cowboy_obj.bbox_max.x) * 0.5f;
+            float center_z = (cowboy_obj.bbox_min.z + cowboy_obj.bbox_max.z) * 0.5f;
+            
+            // Calcula o centro da hitbox do jogador em world space
+            // O jogador é renderizado com: Translate(g_Player.position) * RotateY * Scale(0.3f, 0.3f, 0.3f)
+            // O centro do modelo após transformação é:
+            glm::vec4 player_hitbox_center = glm::vec4(
+                g_Player.position.x + g_Player.model_center.x * player_scale,  // X: posição + offset do centro
+                g_Player.position.y + g_Player.model_center.y * player_scale,  // Y: posição + offset do centro
+                g_Player.position.z + g_Player.model_center.z * player_scale,  // Z: posição + offset do centro
+                1.0f
+            );
+            
+            // Ajusta Y para garantir que a hitbox fique acima do chão
+            float hitbox_bottom = player_hitbox_center.y - player_entity_radius;
+            if (hitbox_bottom < ground_y)
+            {
+                // Move a hitbox para cima para que o bottom fique no chão
+                player_hitbox_center.y = ground_y + player_entity_radius;
+            }
+            
+            DrawPlayerHitbox(player_hitbox_center, player_entity_radius, view, projection);
         }
 
         // Desenha linhas amarelas dos raycasts de todos os inimigos
@@ -2778,6 +2816,87 @@ void DrawDirectionIndicator(glm::vec4 position, glm::vec4 forward, float length,
     // Desenha a linha
     glLineWidth(3.0f);
     glDrawArrays(GL_LINES, 0, 2);
+    glLineWidth(1.0f);
+
+    // Reabilita culling
+    glEnable(GL_CULL_FACE);
+
+    glBindVertexArray(0);
+}
+
+// Desenha hitbox do jogador (esfera wireframe)
+void DrawPlayerHitbox(glm::vec4 position, float radius, glm::mat4 view, glm::mat4 projection)
+{
+    // Cria VAO e VBO se ainda não existirem
+    if (g_LineVAO == 0)
+    {
+        glGenVertexArrays(1, &g_LineVAO);
+        glGenBuffers(1, &g_LineVBO);
+    }
+
+    // Desenha círculos em 3 planos para formar uma esfera wireframe
+    const int num_segments = 32; // Número de segmentos do círculo
+    std::vector<float> vertices;
+
+    // Círculo no plano XY (horizontal)
+    for (int i = 0; i <= num_segments; ++i)
+    {
+        float angle = 2.0f * M_PI * i / num_segments;
+        vertices.push_back(position.x + radius * cos(angle));
+        vertices.push_back(position.y);
+        vertices.push_back(position.z + radius * sin(angle));
+        vertices.push_back(1.0f);
+    }
+
+    // Círculo no plano XZ (vertical, rotacionado)
+    for (int i = 0; i <= num_segments; ++i)
+    {
+        float angle = 2.0f * M_PI * i / num_segments;
+        vertices.push_back(position.x + radius * cos(angle));
+        vertices.push_back(position.y + radius * sin(angle));
+        vertices.push_back(position.z);
+        vertices.push_back(1.0f);
+    }
+
+    // Círculo no plano YZ (vertical, perpendicular)
+    for (int i = 0; i <= num_segments; ++i)
+    {
+        float angle = 2.0f * M_PI * i / num_segments;
+        vertices.push_back(position.x);
+        vertices.push_back(position.y + radius * cos(angle));
+        vertices.push_back(position.z + radius * sin(angle));
+        vertices.push_back(1.0f);
+    }
+
+    // Configura o VAO
+    glBindVertexArray(g_LineVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, g_LineVBO);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(0);
+
+    // Usa o shader principal
+    glUseProgram(g_GpuProgramID);
+
+    // Matriz de modelagem identidade (hitbox já está em coordenadas do mundo)
+    glm::mat4 model = Matrix_Identity();
+    glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
+    glUniformMatrix4fv(g_view_uniform, 1, GL_FALSE, glm::value_ptr(view));
+    glUniformMatrix4fv(g_projection_uniform, 1, GL_FALSE, glm::value_ptr(projection));
+
+    // Define cor verde para hitbox do jogador (diferente do ciano dos inimigos)
+    #define PLAYER_HITBOX 14
+    glUniform1i(g_object_id_uniform, PLAYER_HITBOX);
+
+    // Desabilita culling para linhas
+    glDisable(GL_CULL_FACE);
+
+    // Desenha os 3 círculos
+    glLineWidth(2.0f);
+    int vertices_per_circle = num_segments + 1;
+    glDrawArrays(GL_LINE_STRIP, 0, vertices_per_circle); // Círculo XY
+    glDrawArrays(GL_LINE_STRIP, vertices_per_circle, vertices_per_circle); // Círculo XZ
+    glDrawArrays(GL_LINE_STRIP, vertices_per_circle * 2, vertices_per_circle); // Círculo YZ
     glLineWidth(1.0f);
 
     // Reabilita culling
