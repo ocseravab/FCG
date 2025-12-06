@@ -13,6 +13,9 @@ in vec4 position_model;
 // Coordenadas de textura obtidas do arquivo OBJ (se existirem!)
 in vec2 texcoords;
 
+in vec3 gouraud_color;
+uniform int shading_mode;
+
 // Matrizes computadas no código C++ e enviadas para a GPU
 uniform mat4 model;
 uniform mat4 view;
@@ -69,6 +72,22 @@ void main()
     // Coordenadas de textura U e V
     float U = 0.0;
     float V = 0.0;
+
+    // ------------------------------
+    // SE MODO = GOURAUD → usa cor pronta
+    // ------------------------------
+    if (shading_mode == 1)
+    {
+        // para objetos com textura
+        vec3 texcolor = vec3(1.0);
+        if (use_texture == 1)
+            texcolor = texture(TextureImage0, texcoords).rgb;
+    
+        color.rgb = texcolor * gouraud_color;
+        color.a = 1.0;
+        color.rgb = pow(color.rgb, vec3(1.0/2.2));
+        return;
+    }
 
     if (object_id == PLANE)
     {
@@ -139,34 +158,59 @@ void main()
     }
     else if (object_id == PLAYER)
     {
-        // coordenadas já vieram do OBJ
-        vec3 texcolor = texture(TextureImage0, texcoords).rgb;
-        float lambert = max(0, dot(n,l));
-        color.rgb = texcolor * (lambert + 0.2);
+        // Difusa (Lambert) a partir da textura
+        vec3 kd = texture(TextureImage0, texcoords).rgb;
+
+        // Normaliza vetores que já existem no shader
+        vec3 N = normalize(n.xyz);
+        vec3 L = normalize(l.xyz);
+        vec3 V = normalize(v.xyz);
+
+        // Componente difusa (Lambert)
+        float lambert = max(dot(N, L), 0.0);
+
+        // Half-vector para Blinn-Phong
+        vec3 H = normalize(L + V);
+
+        // Componente especular Blinn-Phong
+        float shininess = 32.0;          // “brilho” do material
+        float spec = pow(max(dot(N, H), 0.0), shininess);
+        vec3 ks = vec3(0.25);            // intensidade especular
+
+        // Cor final: difusa + especular + um ambientezinho
+        color.rgb = kd * (lambert + 0.2) + ks * spec;
     }
     else if (object_id == ENEMY)
     {
         // UV REAL do OBJ
         vec2 uv = texcoords;
-    
-        // fallback só se REALMENTE não tem UV (raro)
-        if (uv == vec2(0.0, 0.0)) {
+        if (uv == vec2(0.0, 0.0))
             uv = vec2(0.5, 0.5);
-        }
-    
-        // Se o material TEM textura (C++ definiu use_texture = 1)
-        if (use_texture == 1) {
-            vec3 texcolor = texture(TextureImage0, uv).rgb;
-            float lambert = max(0.0, dot(n, l));
-            color.rgb = texcolor * (lambert + 0.2);
-        }
-        else {
-            // Se o material NÃO tem textura (edge_colorXXXX)
-            vec3 fallback = vec3(0.6, 0.5, 0.4);
-            float lambert = max(0.0, dot(n, l));
-            color.rgb = fallback * (lambert + 0.2);
-        }
+
+        // kd: cor difusa (da textura ou fallback)
+        vec3 kd;
+        if (use_texture == 1)
+            kd = texture(TextureImage0, uv).rgb;
+        else
+            kd = vec3(0.6, 0.5, 0.4);  // cor “marrom” pros materiais sem textura
+
+        // Normaliza vetores já existentes
+        vec3 N = normalize(n.xyz);
+        vec3 L = normalize(l.xyz);
+        vec3 V = normalize(v.xyz);
+
+        // Difusa
+        float lambert = max(dot(N, L), 0.0);
+
+        // Half-vector Blinn-Phong
+        vec3 H = normalize(L + V);
+        float shininess = 16.0;        // pode ser menor que o do player
+        float spec = pow(max(dot(N, H), 0.0), shininess);
+        vec3 ks = vec3(0.20);          // especular um pouco mais fraca
+
+        color.rgb = kd * (lambert + 0.2) + ks * spec;
     }
+
     else if (object_id == BOX)
     {
         // Cor marrom/amadeirada para caixas e barrils

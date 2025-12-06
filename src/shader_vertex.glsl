@@ -19,6 +19,7 @@ out vec4 position_world;
 out vec4 position_model;
 out vec4 normal;
 out vec2 texcoords;
+out vec3 gouraud_color;
 
 void main()
 {
@@ -63,5 +64,32 @@ void main()
 
     // Coordenadas de textura obtidas do arquivo OBJ (se existirem!)
     texcoords = texture_coefficients;
+
+    // ---------------------------------------
+    // Cálculo de iluminação Gouraud (por vértice)
+    // ---------------------------------------
+    
+    vec4 p = position_world;
+    vec4 n = normalize(normal);
+    
+    // MESMA luz usada no shader_fragment
+    vec4 l = normalize(vec4(1.0,1.0,0.0,0.0));
+    
+    // posição da câmera no mundo
+    vec4 origin = vec4(0,0,0,1);
+    vec4 camera_position = inverse(view) * origin;
+    vec4 v = normalize(camera_position - p);
+    
+    // termos da iluminação
+    float ambient = 0.2;
+    
+    float lambert = max(dot(n, l), 0.0);
+    
+    // Blinn-Phong
+    vec4 h = normalize(v + l);
+    float spec = pow(max(dot(n, h), 0.0), 32.0);
+    
+    // cor final do vértice
+    gouraud_color = vec3(ambient + lambert + spec);
 }
 

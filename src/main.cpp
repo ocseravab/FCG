@@ -253,8 +253,8 @@ struct Player
         , moving_right(false)
         , max_health(100.0f)
         , health(100.0f)  // Initialize with literal value since max_health isn't initialized yet
-        , magazine_size(12)
-        , magazine_ammo(12)  // Initialize with literal value since magazine_size isn't initialized yet
+        , magazine_size(20)
+        , magazine_ammo(20)  // Initialize with literal value since magazine_size isn't initialized yet
         , shoot_cooldown(0.0f)
         , shoot_cooldown_time(0.2f)  // 0.2 segundos de cooldown entre tiros
         , reload_time(0.0f)
@@ -1487,7 +1487,7 @@ printf("============================\n\n");
 
         // Veja slides 176-204 do documento Aula_09_Projecoes.pdf.
         float nearplane = -0.1f;
-        float farplane  = -25.0f;
+        float farplane  = -30.0f;
 
         if (g_UsePerspectiveProjection)
         {
@@ -4083,7 +4083,7 @@ void EnemyToPlayerRaycast(size_t enemy_index)
     // Aplica dano ao jogador se foi atingido e não foi bloqueado por uma caixa
     if (player_hit_and_not_blocked)
     {
-        const float enemy_damage_amount = 10.0f; // Quantidade de dano que o inimigo causa
+        const float enemy_damage_amount = 2.0f; // Quantidade de dano que o inimigo causa
         g_Player.TakeDamage(enemy_damage_amount);
         printf("Enemy %zu hit player! Player health: %.1f/%.1f\n",
                enemy_index, g_Player.health, g_Player.max_health);
