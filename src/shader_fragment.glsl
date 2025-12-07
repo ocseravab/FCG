@@ -213,10 +213,95 @@ void main()
 
     else if (object_id == BOX)
     {
-        // Cor marrom/amadeirada para caixas e barrils
-        vec3 box_color = vec3(0.6, 0.4, 0.2); // Marrom/amadeirado
-        float lambert = max(0, dot(n,l));
-        color.rgb = box_color * (lambert + 0.2);
+        // Usa textura de crate para caixas
+        // Gera coordenadas de textura baseadas na posição do modelo
+        // O cubo vai de -1 a 1 em cada eixo
+        // Como cube.obj não tem coordenadas de textura, sempre geramos UVs baseados na face
+        vec3 pos = position_model.xyz;
+        vec3 absPos = abs(pos);
+        vec2 uv;
+        
+        // Determina qual face do cubo baseado na coordenada mais próxima de 1.0
+        // Isso garante que cada face tenha o mapeamento correto
+        if (absPos.x >= absPos.y && absPos.x >= absPos.z)
+        {
+            // Face lateral (X é dominante)
+            if (pos.x > 0.0)
+            {
+                // Right face (X = 1): usa -Z e Y
+                uv = vec2(
+                    (-pos.z + 1.0) * 0.5,
+                    (pos.y + 1.0) * 0.5
+                );
+            }
+            else
+            {
+                // Left face (X = -1): usa Z e Y
+                uv = vec2(
+                    (pos.z + 1.0) * 0.5,
+                    (pos.y + 1.0) * 0.5
+                );
+            }
+        }
+        else if (absPos.y >= absPos.z)
+        {
+            // Face superior/inferior (Y é dominante)
+            if (pos.y > 0.0)
+            {
+                // Top face (Y = 1): usa X e -Z
+                uv = vec2(
+                    (pos.x + 1.0) * 0.5,
+                    (-pos.z + 1.0) * 0.5
+                );
+            }
+            else
+            {
+                // Bottom face (Y = -1): usa X e Z
+                uv = vec2(
+                    (pos.x + 1.0) * 0.5,
+                    (pos.z + 1.0) * 0.5
+                );
+            }
+        }
+        else
+        {
+            // Face frontal/traseira (Z é dominante)
+            if (pos.z > 0.0)
+            {
+                // Front face (Z = 1): usa X e Y
+                uv = vec2(
+                    (pos.x + 1.0) * 0.5,
+                    (pos.y + 1.0) * 0.5
+                );
+            }
+            else
+            {
+                // Back face (Z = -1): usa -X e Y (flip X)
+                uv = vec2(
+                    (-pos.x + 1.0) * 0.5,
+                    (pos.y + 1.0) * 0.5
+                );
+            }
+        }
+        
+        vec3 kd = texture(TextureImage0, uv).rgb;
+        
+        // Normaliza vetores
+        vec3 N = normalize(n.xyz);
+        vec3 L = normalize(l.xyz);
+        vec3 V = normalize(v.xyz);
+        
+        // Componente difusa (Lambert)
+        float lambert = max(dot(N, L), 0.0);
+        
+        // Half-vector para Blinn-Phong
+        vec3 H = normalize(L + V);
+        float shininess = 16.0;
+        float spec = pow(max(dot(N, H), 0.0), shininess);
+        vec3 ks = vec3(0.15);
+        
+        // Cor final: difusa + especular + ambiente
+        color.rgb = kd * (lambert + 0.2) + ks * spec;
     }
     else
     {

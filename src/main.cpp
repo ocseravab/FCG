@@ -1100,6 +1100,7 @@ void LoadAllBanditTextures(ObjModel& model_bandit)
 
 
 GLuint texture_plane = 0;
+GLuint texture_crate = 0;
 
 int main(int argc, char* argv[])
 {
@@ -1158,6 +1159,17 @@ int main(int argc, char* argv[])
     texture_plane = LoadTextureImage("../../data/sand.jpg");
 
     glBindTexture(GL_TEXTURE_2D, texture_plane);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    // Load crate texture
+    texture_crate = LoadTextureImage("../../data/crate.jpg");
+
+    glBindTexture(GL_TEXTURE_2D, texture_crate);
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
@@ -1821,6 +1833,13 @@ void DrawVirtualObject(const char* object_name)
         glUniform1i(glGetUniformLocation(g_GpuProgramID, "use_texture"), 1);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, texture_plane);    // <<--- usa SÓ a areia
+        glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage0"), 0);
+    }
+    else if (strcmp(object_name, "the_cube") == 0)  // nome do objeto no .obj
+    {
+        glUniform1i(glGetUniformLocation(g_GpuProgramID, "use_texture"), 1);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, texture_crate);    // <<--- usa a textura de crate
         glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage0"), 0);
     }
     else
